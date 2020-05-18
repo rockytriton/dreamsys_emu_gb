@@ -24,14 +24,57 @@ enum Op {
     NOP,
     LD,
     LDI,
+    LDD,
+    INC,
+    DEC,
+    JR,
+    DAA,
+    ADD,
+    SUB,
+    RLA,
+    RLCA,
+    RRA,
+    RRCA,
+    STOP,
+    SCF,
+    CPL,
+    CCF,
+    SBC,
+    XOR,
+    AOR,
+    CP,
+    POP,
+    PUSH,
+    AND,
+    OR,
+    JP,
+    RET,
+    DI,
+    EI,
+    CALL,
+    RST,
+    CB,
+    ADC,
+    X,
+    RETI,
+    LDH
 };
 
 enum AddrType {
+    ATypeNA,
     ATypeRR,
     ATypeIR,
     ATypeAR,
     ATypeRI,
-    ATypeRA
+    ATypeRA,
+    ATypeJ,
+    ATypeJ_NZ,
+    ATypeJ_Z,
+    ATypeJ_NC,
+    ATypeJ_C,
+    ATypeR,
+    ATypeA,
+    ATypeSP
     /*
     ATypeA1R,
     ATypeA2R,
@@ -58,7 +101,8 @@ enum ParamType {
     SP,
     PC,
     N,
-    NN
+    NN,
+    x00, x10, x20, x30, x08, x18, x28, x38
 };
 
 struct OpCode {
