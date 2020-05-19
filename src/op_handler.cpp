@@ -193,6 +193,7 @@ byte *getPointer(ParamType pt) {
         case E: return &regDE.lo; 
         case H: return &regHL.hi; 
         case L: return &regHL.lo; 
+        case N: return &memory::ram[memory::read(regPC + 1)]; 
         case HL: return &memory::ram[toShort(regHL.hi, regHL.lo)];
     }
 
@@ -202,26 +203,33 @@ byte *getPointer(ParamType pt) {
     return nullptr;
 }
 
+void setFlags(byte first, byte second, bool add, bool withCarry) {
+    if (add) {
+        ushort a = first + second + (withCarry && get_flag(FlagC));
+        set_flag(FlagZ, a == 0);
+        set_flag(FlagC, a > 0xFF);
+        set_flag(FlagN, false);
+        set_flag(FlagH, (first & 0xF) + (second & 0xF) + (withCarry && get_flag(FlagC)) > 0xF);
+    } else {
+        short a = first - second - (withCarry && get_flag(FlagC));
+        set_flag(FlagZ, a == 0);
+        set_flag(FlagC, a < 0);
+        set_flag(FlagN, true);
+        set_flag(FlagH, (first & 0xF) - (second & 0xF) - (withCarry && get_flag(FlagC)) < 0);
+    }
+}
+
 void handleCP(const OpCode &op) { 
     byte *val = getPointer(op.params[0]);
 
-    if (regAF.hi - *val == 0) {
-        set_flag(FlagZ, true);
-    } else {
-        set_flag(FlagZ, false);
-    }
+    setFlags(regAF.hi, *val, false, false);
 }
 
 void handleADC(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     ushort a = regAF.hi + *val + get_flag(FlagC);
-
-    if (a > 0xFF) {
-        set_flag(FlagC, true);
-    } else {
-        set_flag(FlagC, false);
-    }
+    setFlags(regAF.hi, *val, true, true);
 
     regAF.hi = a & 0x00FF;
 }
@@ -230,12 +238,7 @@ void handleADD(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     ushort a = regAF.hi + *val;
-
-    if (a > 0xFF) {
-        set_flag(FlagC, true);
-    } else {
-        set_flag(FlagC, false);
-    }
+    setFlags(regAF.hi, *val, true, false);
 
     regAF.hi = a & 0x00FF;
 }
@@ -244,12 +247,7 @@ void handleSUB(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     short a = regAF.hi - *val;
-
-    if (a < 0) {
-        set_flag(FlagC, true);
-    } else {
-        set_flag(FlagC, false);
-    }
+    setFlags(regAF.hi, *val, false, false);
 
     regAF.hi = a & 0x00FF;
 }
@@ -258,12 +256,7 @@ void handleSBC(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     short a = regAF.hi - *val - get_flag(FlagC);
-
-    if (a < 0) {
-        set_flag(FlagC, true);
-    } else {
-        set_flag(FlagC, false);
-    }
+    setFlags(regAF.hi, *val, false, true);
 
     regAF.hi = a & 0x00FF;
 }
@@ -272,18 +265,33 @@ void handleAND(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     regAF.hi &= *val;
+    
+    set_flag(FlagZ, regAF.hi == 0);
+    set_flag(FlagN, false);
+    set_flag(FlagH, true);
+    set_flag(FlagC, 0);
 }
 
 void handleOR(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     regAF.hi |= *val;
+    
+    set_flag(FlagZ, regAF.hi == 0);
+    set_flag(FlagN, false);
+    set_flag(FlagH, false);
+    set_flag(FlagC, 0);
 }
 
 void handleXOR(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     regAF.hi ^= *val;
+    
+    set_flag(FlagZ, regAF.hi == 0);
+    set_flag(FlagN, false);
+    set_flag(FlagH, false);
+    set_flag(FlagC, 0);
 }
 
 byte getVal(ParamType pt) {
@@ -337,6 +345,10 @@ void handleINC(const OpCode &op) {
             }
         } break;
     }
+
+    set_flag(FlagZ, regAF.hi == 0);
+    set_flag(FlagN, 0);
+    set_flag(FlagH, (regAF.hi & 0xF) + 1 > 0xF);
 }
 
 void handleDEC(const OpCode &op) {
@@ -360,6 +372,10 @@ void handleDEC(const OpCode &op) {
             }
         } break;
     }
+
+    set_flag(FlagZ, regAF.hi == 0);
+    set_flag(FlagN, 1);
+    set_flag(FlagH, (regAF.hi & 0xF) - 1 < 0);
 }
 
 void handleRLA(const OpCode &op) {

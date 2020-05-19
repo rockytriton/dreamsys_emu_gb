@@ -23,6 +23,12 @@ ushort regPC = 0;
 
 void run() {
     regPC = 0x100;
+    *((short *)&regAF) = 0x01B0;
+    *((short *)&regBC) = 0x0013;
+    *((short *)&regDE) = 0x00D8;
+    *((short *)&regHL) = 0x014D;
+    *((short *)&regSP) = 0xFFFE;
+
     init_handlers();
 
     while(true) {
