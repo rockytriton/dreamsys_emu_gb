@@ -38,7 +38,7 @@ OpCode opCodes[] = {
     {0x1E, "LD E,n", LD, 2, ATypeIR, {E, N}},
     {0x1F, "RRA", RRA, 1, ATypeNA},
 
-    {0x20, "JR NZ,e", JR, 2, ATypeJ_NZ},
+    {0x20, "JR NZ,e", JR, 2, ATypeJ_NZ, {N}},
     {0x21, "LD HL,nn", LD, 3, ATypeIR, {HL, NN}},
     {0x22, "LDI (HL),A", LDI, 1, ATypeRA, {HL, A}},
     {0x23, "INC HL", INC, 1, ATypeNA, {HL}},
@@ -242,7 +242,7 @@ OpCode opCodes[] = {
     {0xDE, "SBC n", SBC, 2, ATypeNA, {N}},
     {0xDF, "RST 0x08", RST, 1, ATypeNA, {x18}},
 
-    {0xE0, "LDH (n),A", LDH, 1, ATypeRA, {N, A}},
+    {0xE0, "LDH (n),A", LDH, 2, ATypeRA, {N, A}},
     {0xE1, "POP HL", POP, 1, ATypeNA, {HL}},
     {0xE3, "LDH (C),A", LDH, 1, ATypeRA, {C, A}},
     {0xE4, "", X, 1},
@@ -259,7 +259,7 @@ OpCode opCodes[] = {
     {0xEE, "XOR n", XOR, 2, ATypeNA, {N}},
     {0xEF, "RST 0x28", RST, 1, ATypeNA, {x28}},
 
-    {0xF0, "LDH A,(n)", LDH, 1, ATypeRA, {A, N}},
+    {0xF0, "LDH A,(n)", LDH, 2, ATypeRA, {A, N}},
     {0xF1, "POP AF", POP, 1, ATypeNA, {AF}},
     {0xF2, "LDH A,(C)", LDH, 1, ATypeRA, {A, C}},
     {0xF3, "DI", DI, 1},
