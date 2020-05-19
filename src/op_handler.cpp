@@ -5,8 +5,8 @@
 #include <utility>
 
 ushort toShort(byte a, byte b) {
-    ushort s = a << 8;
-    s |= b;
+    ushort s = b << 8;
+    s |= a;
 
     return s;
 }
@@ -30,8 +30,16 @@ PTM paramTypeMap;
 void initParamTypeMap() {
     paramTypeMap[A] = std::make_pair(&regAF, RPTHi);
     paramTypeMap[B] = std::make_pair(&regBC, RPTHi);
+    paramTypeMap[C] = std::make_pair(&regBC, RPTLo);
+    paramTypeMap[D] = std::make_pair(&regDE, RPTHi);
+    paramTypeMap[E] = std::make_pair(&regDE, RPTLo);
+    paramTypeMap[H] = std::make_pair(&regHL, RPTHi);
+    paramTypeMap[L] = std::make_pair(&regHL, RPTLo);
     paramTypeMap[BC] = std::make_pair(&regBC, RPT16);
     paramTypeMap[SP] = std::make_pair(&regSP, RPT16);
+    paramTypeMap[HL] = std::make_pair(&regHL, RPT16);
+    paramTypeMap[DE] = std::make_pair(&regDE, RPT16);
+    paramTypeMap[AF] = std::make_pair(&regAF, RPT16);
 
 }
 
@@ -126,18 +134,291 @@ void handleLD(const OpCode &op) {
 
 }
 
-void handleLDI(const OpCode &op) {
-    
-}
-
 void handleNOP(const OpCode &op) {
 
+}
+
+void handleJumpRelative(const OpCode &op) {
+    ushort location = regPC + memory::read(regPC + 1);
+
+    if (op.mode == ATypeJ) {
+        regPC = location - op.length;
+    } else if (op.mode == ATypeJ_C && get_flag(FlagC)) {
+        regPC = location - op.length;
+    } else if (op.mode == ATypeJ_NC && !get_flag(FlagC)) {
+        regPC = location - op.length;
+    } else if (op.mode == ATypeJ_NZ && !get_flag(FlagZ)) {
+        regPC = location - op.length;
+    } else if (op.mode == ATypeJ_Z && get_flag(FlagZ)) {
+        regPC = location - op.length;
+    }
+}
+
+void handleJump(const OpCode &op) {
+    ushort location = 0;
+
+    switch(op.params[0]) {
+        case NN:
+            location = toShort(memory::read(regPC + 1), memory::read(regPC + 2));
+            break;
+        case HL:
+            location = toShort(regHL.hi, regHL.lo);
+            break;
+        default:
+            cout << "ERRO BAD JUMP" << endl;
+            exit(-1);
+
+    }
+
+    if (op.mode == ATypeJ) {
+        regPC = location - op.length;
+    } else if (op.mode == ATypeJ_C && get_flag(FlagC)) {
+        regPC = location - op.length;
+    } else if (op.mode == ATypeJ_NC && !get_flag(FlagC)) {
+        regPC = location - op.length;
+    } else if (op.mode == ATypeJ_NZ && !get_flag(FlagZ)) {
+        regPC = location - op.length;
+    } else if (op.mode == ATypeJ_Z && get_flag(FlagZ)) {
+        regPC = location - op.length;
+    }
+
+}
+
+byte *getPointer(ParamType pt) {
+    switch(pt) {
+        case A: return &regAF.hi;
+        case B: return &regBC.hi; 
+        case C: return &regBC.lo; 
+        case D: return &regDE.hi; 
+        case E: return &regDE.lo; 
+        case H: return &regHL.hi; 
+        case L: return &regHL.lo; 
+        case HL: return &memory::ram[toShort(regHL.hi, regHL.lo)];
+    }
+
+    cout << "ERROR BAD POINTER" << endl;
+    exit(-1);
+
+    return nullptr;
+}
+
+void handleCP(const OpCode &op) { 
+    byte *val = getPointer(op.params[0]);
+
+    if (regAF.hi - *val == 0) {
+        set_flag(FlagZ, true);
+    } else {
+        set_flag(FlagZ, false);
+    }
+}
+
+void handleADC(const OpCode &op) {
+    byte *val = getPointer(op.params[0]);
+
+    ushort a = regAF.hi + *val + get_flag(FlagC);
+
+    if (a > 0xFF) {
+        set_flag(FlagC, true);
+    } else {
+        set_flag(FlagC, false);
+    }
+
+    regAF.hi = a & 0x00FF;
+}
+
+void handleADD(const OpCode &op) {
+    byte *val = getPointer(op.params[0]);
+
+    ushort a = regAF.hi + *val;
+
+    if (a > 0xFF) {
+        set_flag(FlagC, true);
+    } else {
+        set_flag(FlagC, false);
+    }
+
+    regAF.hi = a & 0x00FF;
+}
+
+void handleSUB(const OpCode &op) {
+    byte *val = getPointer(op.params[0]);
+
+    short a = regAF.hi - *val;
+
+    if (a < 0) {
+        set_flag(FlagC, true);
+    } else {
+        set_flag(FlagC, false);
+    }
+
+    regAF.hi = a & 0x00FF;
+}
+
+void handleSBC(const OpCode &op) {
+    byte *val = getPointer(op.params[0]);
+
+    short a = regAF.hi - *val - get_flag(FlagC);
+
+    if (a < 0) {
+        set_flag(FlagC, true);
+    } else {
+        set_flag(FlagC, false);
+    }
+
+    regAF.hi = a & 0x00FF;
+}
+
+void handleAND(const OpCode &op) {
+    byte *val = getPointer(op.params[0]);
+
+    regAF.hi &= *val;
+}
+
+void handleOR(const OpCode &op) {
+    byte *val = getPointer(op.params[0]);
+
+    regAF.hi |= *val;
+}
+
+void handleXOR(const OpCode &op) {
+    byte *val = getPointer(op.params[0]);
+
+    regAF.hi ^= *val;
+}
+
+byte getVal(ParamType pt) {
+    switch(pt) {
+        case A: return regAF.hi; 
+        case B: return regBC.hi; 
+        case C: return regBC.lo; 
+        case D: return regDE.hi; 
+        case E: return regDE.lo; 
+        case H: return regHL.hi; 
+        case L: return regHL.lo; 
+        case N: return memory::read(regPC + 1); 
+        case HL: return memory::read(toShort(regHL.hi, regHL.lo)); break;
+        default:
+            cout << "BAD LDD" << endl;
+            exit(-1);
+            return 0;
+    }
+}
+
+void handleLDD(const OpCode &op) {
+    byte val = getVal(op.params[0]);
+    ushort *p = (ushort *)&regHL;
+    (*p)--;
+}
+
+void handleLDI(const OpCode &op) {
+    byte val = getVal(op.params[0]);
+    ushort *p = (ushort *)&regHL;
+    (*p)++;
+}
+
+void handleINC(const OpCode &op) {
+    switch(op.params[0]) {
+        case A: regAF.hi++; break;
+        case B: regBC.hi++; break;
+        case C: regBC.lo++; break;
+        case D: regDE.hi++; break;
+        case E: regDE.lo++; break;
+        case H: regHL.hi++; break;
+        case L: regHL.lo++; break;
+        case BC: (*((ushort *)&regBC))++; break;
+        case DE: (*((ushort *)&regDE))++; break;
+        case HL: {
+            if (op.mode == ATypeA) {
+                byte b = memory::read((*((ushort *)&regHL)));
+                b++;
+                memory::write((*((ushort *)&regHL)), b);
+            } else {
+                (*((ushort *)&regHL))++; 
+            }
+        } break;
+    }
+}
+
+void handleDEC(const OpCode &op) {
+    switch(op.params[0]) {
+        case A: regAF.hi--; break;
+        case B: regBC.hi--; break;
+        case C: regBC.lo--; break;
+        case D: regDE.hi--; break;
+        case E: regDE.lo--; break;
+        case H: regHL.hi--; break;
+        case L: regHL.lo--; break;
+        case BC: (*((ushort *)&regBC))--; break;
+        case DE: (*((ushort *)&regDE))--; break;
+        case HL: {
+            if (op.mode == ATypeA) {
+                byte b = memory::read((*((ushort *)&regHL)));
+                b--;
+                memory::write((*((ushort *)&regHL)), b);
+            } else {
+                (*((ushort *)&regHL))--; 
+            }
+        } break;
+    }
+}
+
+void handleRLA(const OpCode &op) {
+    byte b = regAF.hi & (1 << 7);
+    regAF.hi <<= 1;
+    regAF.hi &= (b);
+}
+
+void handleRLCA(const OpCode &op) {
+    byte b = regAF.hi & (1 << 7);
+    regAF.hi <<= 1;
+    
+    if (b & (1 << 7)) {
+        set_flag(FlagC, true);
+    } else {
+        set_flag(FlagC, false);
+    }
+}
+
+void handleRRA(const OpCode &op) {
+    byte b = regAF.hi & 1;
+    regAF.hi >>= 1;
+    regAF.hi &= (b << 7);
+}
+
+void handleRRCA(const OpCode &op) {
+    byte b = regAF.hi & 1;
+    regAF.hi >>= 1;
+    
+    if (b) {
+        set_flag(FlagC, true);
+    } else {
+        set_flag(FlagC, false);
+    }
 }
 
 void init_handlers() {
     handlerMap[LD] = handleLD;
     handlerMap[LDI] = handleLDI;
+    handlerMap[LDD] = handleLDD;
     handlerMap[NOP] = handleNOP;
+    handlerMap[JP] = handleJump;
+    handlerMap[JR] = handleJumpRelative;
+    handlerMap[XOR] = handleXOR;
+    handlerMap[OR] = handleOR;
+    handlerMap[AND] = handleAND;
+    handlerMap[INC] = handleINC;
+    handlerMap[DEC] = handleDEC;
+    handlerMap[RRCA] = handleRRCA;
+    handlerMap[RRA] = handleRRA;
+    handlerMap[RLCA] = handleRLCA;
+    handlerMap[RLA] = handleRLA;
+
+    handlerMap[ADD] = handleADD;
+    handlerMap[ADC] = handleADC;
+    handlerMap[SUB] = handleSUB;
+    handlerMap[SBC] = handleSBC;
+    handlerMap[CP] = handleCP;
+
 
     initParamTypeMap();
 }

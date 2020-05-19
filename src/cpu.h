@@ -17,9 +17,6 @@ enum Flags {
     FlagC = 4
 };
 
-static inline bool get_flag(Flags n);
-static inline void set_flag(Flags n, bool val);
-
 enum Op {
     NOP,
     LD,
@@ -57,7 +54,8 @@ enum Op {
     ADC,
     X,
     RETI,
-    LDH
+    LDH,
+    HALT
 };
 
 enum AddrType {
@@ -102,6 +100,7 @@ enum ParamType {
     PC,
     N,
     NN,
+    AF,
     x00, x10, x20, x30, x08, x18, x28, x38
 };
 
@@ -122,6 +121,18 @@ extern ushort regPC;
 extern Register regSP;
 
 extern OpCode opCodes[];
+
+inline bool get_flag(Flags n) {
+    return regAF.lo & (1 << n);
+}
+
+inline void set_flag(Flags n, bool val) {
+    if (val) {
+        regAF.lo |= (1 << n);
+    } else {
+        regAF.lo &= ~(1 << n);
+    }
+}
 
 void run();
 

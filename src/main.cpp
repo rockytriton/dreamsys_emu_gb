@@ -1,7 +1,8 @@
 #include "cpu.h"
 #include "memory.h"
+#include "cart.h"
 
-#include <memory.h>
+#include <cstring>
 #include <iomanip>
 
 using namespace dsemu::cpu;
@@ -10,8 +11,15 @@ using namespace dsemu::memory;
 int main(int argc, char **argv) {
     cout << "Starting main.." << endl;
 
-    memset(ram, 0, 0xFFFF);
+    std::memset(ram, 0, 0xFFFF);
 
+    dsemu::cart::load((const char *)argv[1]);
+
+    std::memcpy(ram, dsemu::cart::g_romData, 0x8000);
+
+
+
+/*
     ram[0] = 0x01;
     ram[1] = 0xC0;
     ram[2] = 0xDE;
@@ -22,12 +30,12 @@ int main(int argc, char **argv) {
     ram[7] = 0x99;
     ram[8] = 0x02;
     ram[9] = 0xFF;
-
-    cout << endl << "BEFORE RUN, C0DE = " << std::hex << std::setfill('0') << std::setw(2) << (int)ram[0xC0DE] << endl << endl;
+*/
+    //cout << endl << "BEFORE RUN, C0DE = " << std::hex << std::setfill('0') << std::setw(2) << (int)ram[0xC0DE] << endl << endl;
 
     dsemu::cpu::run();
 
-    cout << endl << "AFTER RUN, C0DE  = " << std::hex << std::setfill('0') << std::setw(2) << (int)ram[0xC0DE] << endl << endl;
+    //cout << endl << "AFTER RUN, C0DE  = " << std::hex << std::setfill('0') << std::setw(2) << (int)ram[0xC0DE] << endl << endl;
 
 
 /*

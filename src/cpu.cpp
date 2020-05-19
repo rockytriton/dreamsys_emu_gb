@@ -1,7 +1,10 @@
 #include "cpu.h"
 #include "memory.h"
 
+#include <unistd.h>
 #include <iomanip>
+#include <chrono>
+#include <thread>
 
 namespace dsemu {
 namespace cpu {
@@ -17,28 +20,13 @@ Register regHL;
 Register regSP;
 ushort regPC = 0;
 
-static inline bool get_flag(Flags n) {
-    return regAF.lo & (1 << n);
-}
-
-static inline void set_flag(Flags n, bool val) {
-    if (val) {
-        regAF.lo |= (1 << n);
-    } else {
-        regAF.lo &= ~(1 << n);
-    }
-}
 
 void run() {
-    regPC = 0;
+    regPC = 0x100;
     init_handlers();
 
     while(true) {
         byte b = memory::read(regPC);
-
-        cout << "READ OP CODE: " << std::hex << (int)b << endl;
-        cout << "\tBC: " << *((short *)&regBC) << " A: " << (int)regAF.hi << endl;
-        cout << "\tC0DE: " << std::hex << std::setfill('0') << std::setw(2) << (int)memory::ram[0xC0DE] << endl;
 
         if (b == 0xFF) {
             cout << endl << "DONE" << endl;
@@ -46,9 +34,20 @@ void run() {
         }
 
         OpCode opCode = opCodes[b];
+
+        cout << Short(regPC) << ": " << Byte(b) << " " << Byte(memory::read(regPC + 1)) << " " << Byte(memory::read(regPC + 2)) << " (" << opCode.name << ") "
+             << " - AF: " << Short(toShort(regAF.hi, regAF.lo))
+             << " - BC: " << Short(toShort(regBC.hi, regBC.lo))
+             << " - DE: " << Short(toShort(regDE.hi, regDE.lo))
+             << " - HL: " << Short(toShort(regHL.hi, regHL.lo))
+             << endl;
+
         handle_op(opCode);
 
         regPC += opCode.length;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        
     }
 }
 
