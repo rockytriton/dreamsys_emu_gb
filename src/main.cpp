@@ -1,6 +1,7 @@
 #include "cpu.h"
 #include "memory.h"
 #include "cart.h"
+#include "emu.h"
 
 #include <cstring>
 #include <iomanip>
@@ -33,7 +34,7 @@ int main(int argc, char **argv) {
 */
     //cout << endl << "BEFORE RUN, C0DE = " << std::hex << std::setfill('0') << std::setw(2) << (int)ram[0xC0DE] << endl << endl;
 
-    dsemu::cpu::run();
+    dsemu::run();
 
     //cout << endl << "AFTER RUN, C0DE  = " << std::hex << std::setfill('0') << std::setw(2) << (int)ram[0xC0DE] << endl << endl;
 

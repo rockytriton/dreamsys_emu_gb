@@ -7,7 +7,6 @@ using std::memcpy;
 
 namespace dsemu::cart {
 
-
 Header g_header;
 
 byte *g_romData = nullptr;

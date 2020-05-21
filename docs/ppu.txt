@@ -1,0 +1,49 @@
+Line details
+<-- 20 TICKS --><------ 43+ TICKS -------><------------- 51- TICKS ----------->
+   OAM SEARCH          PIXEL XFER                     H-BLANK 
+|
+| 
+|  144 lines
+|
+|   
+------------------------------------------------------------------------------
+|                               V-BLANK
+| 10 LINES                       
+
+114 x 154 = 17,556 ticks per screen.
+1048576 / 17556 = 59.7 hz refresh
+
+OAM Search = Find visible sprites
+CPU -> PPU -> VRam
+PPU has flag for no access.
+Pixel Transfer mode = No Access VRAM for CPU
+OAM/Pixel modes = No access OAM RAM for CPU
+
+
+Window Map   - 1K (32x32 bytes)
+BG Map       - 1K (32x32 bytes)
+BG Tiles     - 4K (256 x 16 bytes)
+Sprite Tiles - 4K (256 x 16 bytes)
+
+Tile = 8x8, each tile 2 bits, 1 line = 2 bytes, whole tile = 16 bytes.
+
+OAM Entry:
+    PosX
+    PosY
+    Tile Num
+    Priority bit
+    FlipX bit
+    FlipY bit
+    Palette bits
+
+10 sprites per line
+
+OAM RAM:
+    4 bytes per Entry
+    40 entries
+    not part of video ram.
+
+Video RAM = 8k
+
+Pixel FIFO, shift out 1 pixel per clock at 4mhz, waits until has more than 8 pixels.
+Fetch 3 clicks to fetch 8 pixels. pauses in 4th clock unless space in FIFO.

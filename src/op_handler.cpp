@@ -3,6 +3,7 @@
 
 #include <map>
 #include <utility>
+#include <unistd.h>
 
 ushort toShort(byte a, byte b) {
     ushort s = b << 8;
@@ -27,6 +28,8 @@ typedef std::map<ParamType, std::pair<Register *, RegParamType>> PTM;
 
 PTM paramTypeMap;
 
+bool interruptsEnabled;
+
 void initParamTypeMap() {
     paramTypeMap[A] = std::make_pair(&regAF, RPTHi);
     paramTypeMap[B] = std::make_pair(&regBC, RPTHi);
@@ -41,6 +44,40 @@ void initParamTypeMap() {
     paramTypeMap[DE] = std::make_pair(&regDE, RPT16);
     paramTypeMap[AF] = std::make_pair(&regAF, RPT16);
 
+}
+
+byte *getPointer(ParamType pt) {
+    switch(pt) {
+        case A: return &regAF.hi;
+        case B: return &regBC.hi; 
+        case C: return &regBC.lo; 
+        case D: return &regDE.hi; 
+        case E: return &regDE.lo; 
+        case H: return &regHL.hi; 
+        case L: return &regHL.lo; 
+        case N: return &memory::ram[regPC + 1]; 
+        case HL: return &memory::ram[toShort(regHL.hi, regHL.lo)];
+    }
+
+    cout << "ERROR BAD POINTER" << endl;
+    exit(-1);
+
+    return nullptr;
+}
+
+void handleLDH(const OpCode &op) {
+    bool srcIsA = op.params[1] == A;
+
+    if (srcIsA) {
+        byte *p = getPointer(op.params[0]);
+
+        cout << "Writing A to address: " << Short(*p | 0xFF00) << endl;
+
+        memory::write(*p | 0xFF00, regAF.hi);
+    } else {
+        byte *p = getPointer(op.params[1]);
+        regAF.hi = memory::read(*p | 0xFF00);
+    }
 }
 
 void handleLD(const OpCode &op) {
@@ -139,7 +176,10 @@ void handleNOP(const OpCode &op) {
 }
 
 void handleJumpRelative(const OpCode &op) {
-    ushort location = regPC + memory::read(regPC + 1);
+    byte b = memory::read(regPC + 1);
+    ushort location = regPC + (char)b;
+
+    cout << "Jumping Relative: " << (int)(char)b << " to " << location << endl;
 
     if (op.mode == ATypeJ) {
         regPC = location - op.length;
@@ -182,25 +222,6 @@ void handleJump(const OpCode &op) {
         regPC = location - op.length;
     }
 
-}
-
-byte *getPointer(ParamType pt) {
-    switch(pt) {
-        case A: return &regAF.hi;
-        case B: return &regBC.hi; 
-        case C: return &regBC.lo; 
-        case D: return &regDE.hi; 
-        case E: return &regDE.lo; 
-        case H: return &regHL.hi; 
-        case L: return &regHL.lo; 
-        case N: return &memory::ram[memory::read(regPC + 1)]; 
-        case HL: return &memory::ram[toShort(regHL.hi, regHL.lo)];
-    }
-
-    cout << "ERROR BAD POINTER" << endl;
-    exit(-1);
-
-    return nullptr;
 }
 
 void setFlags(byte first, byte second, bool add, bool withCarry) {
@@ -412,6 +433,42 @@ void handleRRCA(const OpCode &op) {
     }
 }
 
+void handleDI(const OpCode &op) {
+    interruptsEnabled = false;
+    cout << "DISABLED INT" << endl;
+    sleep(3);
+}
+
+void handleEI(const OpCode &op) {
+    interruptsEnabled = true;
+    cout << "ENABLED INT" << endl;
+    sleep(3);
+}
+
+void handleRST(const OpCode &op) {
+    ushort *sp = (ushort *)&regSP;
+    *sp = (*sp) - 2;
+    memory::write(*sp, (regPC + 1) & 0xFF);
+    memory::write((*sp) + 1, ((regPC + 1) >> 8) & 0xFF);
+
+    switch(op.params[0]) {
+        case x00: regPC = 0x00; break;
+        case x08: regPC = 0x08; break;
+        case x10: regPC = 0x10; break;
+        case x18: regPC = 0x18; break;
+        case x20: regPC = 0x20; break;
+        case x28: regPC = 0x28; break;
+        case x30: regPC = 0x30; break;
+        case x38: regPC = 0x38; break;
+        default: {
+            cout << "UNKNOWN RST" << endl;
+            exit(-1);
+        }
+    }
+
+    regPC -= 1;
+}
+
 void init_handlers() {
     handlerMap[LD] = handleLD;
     handlerMap[LDI] = handleLDI;
@@ -434,16 +491,20 @@ void init_handlers() {
     handlerMap[SUB] = handleSUB;
     handlerMap[SBC] = handleSBC;
     handlerMap[CP] = handleCP;
+    handlerMap[DI] = handleDI;
+    handlerMap[EI] = handleEI;
+    handlerMap[LDH] = handleLDH;
+    handlerMap[RST] = handleRST;
 
 
     initParamTypeMap();
 }
 
-void handle_op(OpCode opCode) {
+void handle_op(OpCode &opCode) {
     std::map<Op, HANDLER>::iterator it = handlerMap.find(opCode.op);
 
     if (it == handlerMap.end()) {
-        cout << "UNKNOWN OP CODE" << opCode.op << endl;
+        cout << "UNKNOWN OP CODE: " << Byte(opCode.value) << endl;
         exit(-1);
     }
 

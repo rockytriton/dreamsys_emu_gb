@@ -120,11 +120,16 @@ enum ParamType {
     x00, x10, x20, x30, x08, x18, x28, x38
 };
 
+enum Interrupts {
+    IVBlank = 1
+};
+
 struct OpCode {
     byte value;
     const string &name;
     Op op;
     byte length;
+    byte cycles;
     AddrType mode;
     ParamType params[4];
 };
@@ -151,6 +156,12 @@ inline void set_flag(Flags n, bool val) {
 }
 
 void run();
+void handleInterrupt(byte flag, bool request);
+void tick();
+void init();
+void interrupt(Interrupts i);
+
+uint64_t getTickCount();
 
 }
 }
