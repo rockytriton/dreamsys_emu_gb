@@ -53,5 +53,8 @@ bool load(const string &romFile) {
 
 }
 
+byte read(ushort address) {
+    return g_romData[address];
+}
 
 }

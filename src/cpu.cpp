@@ -1,6 +1,7 @@
 #include "cpu.h"
 #include "memory.h"
 #include "ppu.h"
+#include "bus.h"
 
 #include <unistd.h>
 #include <iomanip>
@@ -29,8 +30,41 @@ ushort regPC = 0;
 int remainingTicks = 0;
 bool vbRequested = false;
 bool vbEnabled = false;
+byte intEnableFlag = 0;
+byte intRequestFlag = 0;
 
 uint64_t totalTicks = 0;
+
+void push(ushort s) {
+    ushort *sp = (ushort *)&regSP;
+    *sp = (*sp) - 2;
+    bus::write(*sp, s & 0xFF);
+    bus::write((*sp) + 1, (s >> 8) & 0xFF);
+}
+
+void push(byte b) {
+    ushort *sp = (ushort *)&regSP;
+    *sp = (*sp) - 1;
+    bus::write(*sp, b);
+}
+
+ushort spop() {
+    ushort *sp = (ushort *)&regSP;
+    byte lo = bus::read(*sp);
+    *sp = (*sp) + 1;
+    byte hi = bus::read(*sp);
+    *sp = (*sp) + 1;
+
+    return toShort(lo, hi);
+}
+
+byte pop() {
+    ushort *sp = (ushort *)&regSP;
+    byte lo = bus::read(*sp);
+    *sp = (*sp) + 1;
+
+    return lo;
+}
 
 uint64_t getTickCount() {
     return totalTicks;
@@ -61,7 +95,7 @@ void init() {
     );
 }
 
-int cpuSpeed = 1;
+int cpuSpeed = 0; //5;
 
 void tick() {
     totalTicks++;
@@ -71,11 +105,15 @@ void tick() {
         return;
     }
 
-    byte b = memory::read(regPC);
+    if (regAF.hi == 0x92) {
+        //cpuSpeed = 500;
+    }
+
+    byte b = bus::read(regPC);
 
     OpCode opCode = opCodes[b];
 
-    cout << Short(regPC) << ": " << Byte(b) << " " << Byte(memory::read(regPC + 1)) << " " << Byte(memory::read(regPC + 2)) << " (" << opCode.name << ") "
+    if (DEBUG) cout << Int64(totalTicks) << ": " << Short(regPC) << ": " << Byte(b) << " " << Byte(bus::read(regPC + 1)) << " " << Byte(bus::read(regPC + 2)) << " (" << opCode.name << ") "
             << " - A: " << Byte(regAF.hi) << " F: " << Byte(regAF.lo)
             << " - BC: " << Short(toShort(regBC.hi, regBC.lo))
             << " - DE: " << Short(toShort(regDE.hi, regDE.lo))
@@ -88,14 +126,16 @@ void tick() {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(cpuSpeed));
 
-    if (interruptsEnabled && memory::read(0xFFF0)) {
-        cout << endl << "Interrupt ready to handle: " << Byte(memory::read(0xFFF0)) << endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+    if (interruptsEnabled && bus::read(0xFF0F)) {
+        //cout << endl << "Interrupt ready to handle: " << Byte(bus::read(0xFF0F)) << endl;
+        //std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+
+        handleInterrupt(bus::read(0xFF0F), true);
     }
 
     if (interruptsEnabled && vbEnabled && vbRequested) {
-        cout << endl << "VBLANK Interrupt ready to handle: " << Byte(memory::read(0xFFF0)) << endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+        //cout << endl << "VBLANK Interrupt ready to handle: " << Byte(bus::read(0xFF0F)) << endl;
+        //std::this_thread::sleep_for(std::chrono::milliseconds(5000));
     }
 
     remainingTicks = opCode.cycles - 1;
@@ -104,7 +144,19 @@ void tick() {
     if (SDL_PollEvent(&e) > 0)
     {
         SDL_UpdateWindowSurface(window);
+
+        if (e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_CLOSE) {
+            exit(0);
+        }
     }
+}
+
+void changePC(ushort address) {
+    ushort *sp = (ushort *)&regSP;
+    *sp = (*sp) - 2;
+    bus::write(*sp, (regPC + 1) & 0xFF);
+    bus::write((*sp) + 1, ((regPC + 1) >> 8) & 0xFF);
+    regPC = address;
 }
 
 void handleInterrupt(byte flag, bool request) {
@@ -115,15 +167,35 @@ void handleInterrupt(byte flag, bool request) {
 
         if (request && interruptsEnabled) {
             cout << "CPU:> HANDLING VBLANK" << endl;
-            ushort *sp = (ushort *)&regSP;
-            *sp = (*sp) - 2;
-            memory::write(*sp, (regPC + 1) & 0xFF);
-            memory::write((*sp) + 1, ((regPC + 1) >> 8) & 0xFF);
-            regPC = 0x40;
-            cpuSpeed = 500;
+            intRequestFlag &= ~1;
+            cout << "Disabling VBlank: " << Byte(intRequestFlag) << endl;
+
+            changePC(0x40);
+            //cpuSpeed = 500;
         }
     }
 }
+
+
+byte getInterruptsEnableFlag() {
+    return intEnableFlag;
+}
+byte getInterruptsRequestsFlag() {
+    return intRequestFlag;
+}
+
+void setInterruptsEnableFlag(byte f) {
+    intEnableFlag |= f;
+    cout << endl << "WRITING INT ENABLE FLAG: " << Byte(f) << endl << endl;
+}
+
+void setInterruptsRequestsFlag(byte f) {
+    intRequestFlag |= f;
+    cout << endl << "WRITING INT REQUEST FLAG: " << Byte(f) << " - " << Byte(intRequestFlag) << endl << endl;
+}
+
+
+
 
 }
 }

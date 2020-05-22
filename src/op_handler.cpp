@@ -1,5 +1,6 @@
 #include "cpu.h"
 #include "memory.h"
+#include "bus.h"
 
 #include <map>
 #include <utility>
@@ -46,7 +47,7 @@ void initParamTypeMap() {
 
 }
 
-byte *getPointer(ParamType pt) {
+byte *getPointer(ParamType pt, bool hlAsRam = true) {
     switch(pt) {
         case A: return &regAF.hi;
         case B: return &regBC.hi; 
@@ -54,9 +55,14 @@ byte *getPointer(ParamType pt) {
         case D: return &regDE.hi; 
         case E: return &regDE.lo; 
         case H: return &regHL.hi; 
-        case L: return &regHL.lo; 
+        case L: return &regHL.lo;
+        case AF: return &regAF.hi;
+        case BC: return &regBC.hi;
+        case DE: return &regDE.hi;
         case N: return &memory::ram[regPC + 1]; 
-        case HL: return &memory::ram[toShort(regHL.hi, regHL.lo)];
+        case HL: return hlAsRam ? &memory::ram[toShort(regHL.hi, regHL.lo)] : &regHL.hi;
+        default:
+            break;
     }
 
     cout << "ERROR BAD POINTER" << endl;
@@ -65,18 +71,22 @@ byte *getPointer(ParamType pt) {
     return nullptr;
 }
 
+void handleGoto(ushort address) {
+
+}
+
 void handleLDH(const OpCode &op) {
     bool srcIsA = op.params[1] == A;
 
     if (srcIsA) {
         byte *p = getPointer(op.params[0]);
 
-        cout << "Writing A to address: " << Short(*p | 0xFF00) << endl;
+        if (DEBUG) cout << "Writing A to address: " << Short(*p | 0xFF00) << endl;
 
-        memory::write(*p | 0xFF00, regAF.hi);
+        bus::write(*p | 0xFF00, regAF.hi);
     } else {
         byte *p = getPointer(op.params[1]);
-        regAF.hi = memory::read(*p | 0xFF00);
+        regAF.hi = bus::read(*p | 0xFF00);
     }
 }
 
@@ -95,10 +105,10 @@ void handleLD(const OpCode &op) {
 
     if (sit == paramTypeMap.end()) {
         if (op.params[1] == N) {
-            srcValue = memory::read(regPC + 1);
+            srcValue = bus::read(regPC + 1);
         } else if (op.params[1] == NN){
-            srcValue = memory::read(regPC + 1) << 8;
-            srcValue |= memory::read(regPC + 2);
+            srcValue = bus::read(regPC + 1) << 8;
+            srcValue |= bus::read(regPC + 2);
         } else {
             cout << "Unknown LD Source Type " << endl;
             exit(-1);
@@ -150,12 +160,11 @@ void handleLD(const OpCode &op) {
 
     switch(op.mode) {
         case ATypeRA:
-            cout << "WRITING REGISTER TO ADDRESS: " << endl;
-            cout << "\t SRCVALUE = " << std::hex << srcValue << endl;
-            cout << "\t DSTVALUE = " << std::hex << dstValue << endl;
 
-            memory::write(dstValue, srcValue);
+            bus::write(dstValue, srcValue);
             break;
+        case ATypeAR:
+        case ATypeRR:
         case ATypeIR:
             {
                 if (dstType == RPTLo) {
@@ -166,6 +175,11 @@ void handleLD(const OpCode &op) {
                     *((ushort *)dst) = srcValue;
                 }
             } break;
+
+        default:
+            cout << "INVALID OP FLAG" << endl;
+            exit(-1);
+            return;
             
     }
 
@@ -176,10 +190,10 @@ void handleNOP(const OpCode &op) {
 }
 
 void handleJumpRelative(const OpCode &op) {
-    byte b = memory::read(regPC + 1);
+    byte b = bus::read(regPC + 1);
     ushort location = regPC + (char)b;
 
-    cout << "Jumping Relative: " << (int)(char)b << " to " << location << endl;
+    if (DEBUG) cout << "Jumping Relative: " << (int)(char)b << " to " << location << endl;
 
     if (op.mode == ATypeJ) {
         regPC = location - op.length;
@@ -199,7 +213,7 @@ void handleJump(const OpCode &op) {
 
     switch(op.params[0]) {
         case NN:
-            location = toShort(memory::read(regPC + 1), memory::read(regPC + 2));
+            location = toShort(bus::read(regPC + 1), bus::read(regPC + 2));
             break;
         case HL:
             location = toShort(regHL.hi, regHL.lo);
@@ -222,6 +236,69 @@ void handleJump(const OpCode &op) {
         regPC = location - op.length;
     }
 
+}
+
+void handleDAA(const OpCode &op) {
+    if (!get_flag(FlagN)) {
+        ushort a = regAF.hi;
+        byte nl = (regAF.hi & 0x0f);
+        bool finalVal = false;
+        
+        if (get_flag(FlagH) || nl > 0x09) {
+            a += 6;
+        }
+
+        if (get_flag(FlagC) || (a & 0xFFF0) > 0x90) {
+            a += 0x60;
+            finalVal = true;
+        }
+
+        regAF.hi = (byte)(a & 0xFF);
+        set_flag(FlagC, finalVal);
+    } else {
+        if (get_flag(FlagH)) {
+            regAF.hi -= 6;
+        }
+
+        if (get_flag(FlagC)) {
+            regAF.hi -= 0x60;
+        } else {
+            set_flag(FlagC, false);
+        }
+    }
+
+    set_flag(FlagZ, regAF.hi == 0);
+    set_flag(FlagH, false);
+}
+
+
+ushort lastCallAddress = 0;
+
+void handlePOP(const OpCode &op) {
+    ushort *p = (ushort *)getPointer(op.params[0], false);
+    *p = spop();
+}
+
+void handlePUSH(const OpCode &op) {
+    ushort *p = (ushort *)getPointer(op.params[0], false);
+    push(*p);
+}
+
+void handleCALL(const OpCode &op) {
+    lastCallAddress = regPC + 1;
+
+    cout << "HANDLING CALL: " << Short(regPC) << endl;
+
+    cpu::push((ushort)(regPC + 1));
+
+    handleJump(op);
+}
+
+void handleRET(const OpCode &op) {
+    regPC = cpu::spop() - op.length;
+
+    cout << "HANDLING RET: " << Short(lastCallAddress) << " - " << Short(regPC) << endl;
+    //sleep(50);
 }
 
 void setFlags(byte first, byte second, bool add, bool withCarry) {
@@ -324,8 +401,8 @@ byte getVal(ParamType pt) {
         case E: return regDE.lo; 
         case H: return regHL.hi; 
         case L: return regHL.lo; 
-        case N: return memory::read(regPC + 1); 
-        case HL: return memory::read(toShort(regHL.hi, regHL.lo)); break;
+        case N: return bus::read(regPC + 1); 
+        case HL: return bus::read(toShort(regHL.hi, regHL.lo)); break;
         default:
             cout << "BAD LDD" << endl;
             exit(-1);
@@ -334,13 +411,13 @@ byte getVal(ParamType pt) {
 }
 
 void handleLDD(const OpCode &op) {
-    byte val = getVal(op.params[0]);
+    handleLD(op);
     ushort *p = (ushort *)&regHL;
     (*p)--;
 }
 
 void handleLDI(const OpCode &op) {
-    byte val = getVal(op.params[0]);
+    handleLD(op);
     ushort *p = (ushort *)&regHL;
     (*p)++;
 }
@@ -358,13 +435,17 @@ void handleINC(const OpCode &op) {
         case DE: (*((ushort *)&regDE))++; break;
         case HL: {
             if (op.mode == ATypeA) {
-                byte b = memory::read((*((ushort *)&regHL)));
+                byte b = bus::read((*((ushort *)&regHL)));
                 b++;
-                memory::write((*((ushort *)&regHL)), b);
+                bus::write((*((ushort *)&regHL)), b);
             } else {
                 (*((ushort *)&regHL))++; 
             }
         } break;
+        default:
+            cout << "INVALID INC FLAG" << endl;
+            exit(-1);
+            return;
     }
 
     set_flag(FlagZ, regAF.hi == 0);
@@ -385,13 +466,17 @@ void handleDEC(const OpCode &op) {
         case DE: (*((ushort *)&regDE))--; break;
         case HL: {
             if (op.mode == ATypeA) {
-                byte b = memory::read((*((ushort *)&regHL)));
+                byte b = bus::read((*((ushort *)&regHL)));
                 b--;
-                memory::write((*((ushort *)&regHL)), b);
+                bus::write((*((ushort *)&regHL)), b);
             } else {
                 (*((ushort *)&regHL))--; 
             }
         } break;
+        default:
+            cout << "INVALID DEC FLAG" << endl;
+            exit(-1);
+            return;
     }
 
     set_flag(FlagZ, regAF.hi == 0);
@@ -436,20 +521,20 @@ void handleRRCA(const OpCode &op) {
 void handleDI(const OpCode &op) {
     interruptsEnabled = false;
     cout << "DISABLED INT" << endl;
-    sleep(3);
+    //sleep(3);
 }
 
 void handleEI(const OpCode &op) {
     interruptsEnabled = true;
     cout << "ENABLED INT" << endl;
-    sleep(3);
+    //sleep(3);
 }
 
 void handleRST(const OpCode &op) {
     ushort *sp = (ushort *)&regSP;
     *sp = (*sp) - 2;
-    memory::write(*sp, (regPC + 1) & 0xFF);
-    memory::write((*sp) + 1, ((regPC + 1) >> 8) & 0xFF);
+    bus::write(*sp, (regPC + 1) & 0xFF);
+    bus::write((*sp) + 1, ((regPC + 1) >> 8) & 0xFF);
 
     switch(op.params[0]) {
         case x00: regPC = 0x00; break;
@@ -495,7 +580,11 @@ void init_handlers() {
     handlerMap[EI] = handleEI;
     handlerMap[LDH] = handleLDH;
     handlerMap[RST] = handleRST;
-
+    handlerMap[CALL] = handleCALL;
+    handlerMap[RET] = handleRET;
+    handlerMap[DAA] = handleDAA;
+    handlerMap[PUSH] = handlePUSH;
+    handlerMap[POP] = handlePOP;
 
     initParamTypeMap();
 }

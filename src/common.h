@@ -26,6 +26,11 @@ struct Short {
     ushort s;
 };
 
+struct Int64 {
+    Int64(uint64_t _s) : s(_s) {}
+    uint64_t s;
+};
+
 inline std::ostream &operator <<(std::ostream &os, Byte b) {
     os << std::hex << std::setfill('0') << std::setw(2) << (int)b.b << std::dec;
     return os;
@@ -35,6 +40,13 @@ inline std::ostream &operator <<(std::ostream &os, Short s) {
     os << std::hex << std::setfill('0') << std::setw(4) << s.s << std::dec;
     return os;
 }
+
+inline std::ostream &operator <<(std::ostream &os, Int64 s) {
+    os << std::hex << std::setfill('0') << std::setw(16) << s.s << std::dec;
+    return os;
+}
+
+static const bool DEBUG = true;
 
 /*
 ostream& operator << (std::ostream& os, complex<double> a) {

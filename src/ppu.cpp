@@ -7,16 +7,26 @@
 
 namespace dsemu::ppu {
 
+ScrollInfo scrollInfo;
 int currentFrame = 0;
-int currentLine = 0;
+byte currentLine = 0;
+
+byte oamRAM[160];
 
 void init() {
     currentFrame = 0;
     currentLine = 0;
 }
 
-int getCurrentLine() {
+byte getCurrentLine() {
     return currentLine;
+}
+byte readOAM(ushort address) {
+    return oamRAM[address];
+}
+
+void writeOAM(ushort address, byte b) {
+    oamRAM[address] = b;
 }
 
 void tick() {
@@ -24,14 +34,14 @@ void tick() {
     int l = f / 114;
 
     if (l != currentLine && l < 144) {
-        cout << "PPU:> NEW LINE: " << l << endl;
+        if (DEBUG) cout << "PPU:> NEW LINE: " << l << " FRAME: " << currentFrame << endl;
     }
 
-    if (l != currentLine && l == 144) {
+    if (l != currentLine && l == 145) {
         currentFrame++;
-        cout << endl << "PPU:> NEW FRAME: " << currentFrame << endl << endl;
+        if (DEBUG) cout << endl << "PPU:> NEW FRAME: " << currentFrame << endl << endl;
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         cpu::handleInterrupt(cpu::IVBlank, true);
     }

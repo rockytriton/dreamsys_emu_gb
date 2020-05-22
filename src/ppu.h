@@ -5,6 +5,13 @@
 
 namespace dsemu::ppu {
 
+struct ScrollInfo {
+    byte x;
+    byte y;
+};
+
+extern ScrollInfo scrollInfo;
+
 const int HZ = 1048576;
 const int LINES_PER_FRAME = 154;
 const int TICKS_PER_LINE = 114;
@@ -16,7 +23,16 @@ const int VBLANK_LINE = 144;
 void tick();
 void init();
 
-int getCurrentLine();
+byte getCurrentLine();
+
+byte readOAM(ushort address);
+void writeOAM(ushort address, byte b);
+
+inline byte getXScroll() { return scrollInfo.x; }
+inline byte getYScroll() { return scrollInfo.y; }
+
+inline void setXScroll(byte b) { scrollInfo.x = b; }
+inline void setYScroll(byte b) { scrollInfo.y = b; }
 
 }
 

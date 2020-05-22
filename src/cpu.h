@@ -161,7 +161,19 @@ void tick();
 void init();
 void interrupt(Interrupts i);
 
+byte getInterruptsEnableFlag();
+byte getInterruptsRequestsFlag();
+
+void setInterruptsEnableFlag(byte f);
+void setInterruptsRequestsFlag(byte f);
+
 uint64_t getTickCount();
+void changePC(ushort address);
+
+byte pop();
+ushort spop();
+void push(byte);
+void push(ushort);
 
 }
 }
