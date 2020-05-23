@@ -15,7 +15,7 @@ ushort toShort(byte a, byte b) {
 
 namespace dsemu::cpu {
 
-typedef void (*HANDLER)(const OpCode &op);
+typedef int (*HANDLER)(const OpCode &op);
 
 std::map<Op, HANDLER> handlerMap;
 
@@ -28,8 +28,11 @@ enum RegParamType {
 typedef std::map<ParamType, std::pair<Register *, RegParamType>> PTM;
 
 PTM paramTypeMap;
+bool eiCalled = false;
 
 bool interruptsEnabled;
+
+std::map<byte, byte> jumpCycleMap;
 
 void initParamTypeMap() {
     paramTypeMap[A] = std::make_pair(&regAF, RPTHi);
@@ -45,6 +48,23 @@ void initParamTypeMap() {
     paramTypeMap[DE] = std::make_pair(&regDE, RPT16);
     paramTypeMap[AF] = std::make_pair(&regAF, RPT16);
 
+    jumpCycleMap[0x20] = 4;
+    jumpCycleMap[0x30] = 4;
+    jumpCycleMap[0x28] = 4;
+    jumpCycleMap[0x38] = 4;
+    jumpCycleMap[0xC0] = 12;
+    jumpCycleMap[0xD0] = 12;
+    jumpCycleMap[0xC2] = 4;
+    jumpCycleMap[0xD2] = 4;
+    jumpCycleMap[0xC4] = 12;
+    jumpCycleMap[0xD4] = 12;
+    jumpCycleMap[0xC8] = 12;
+    jumpCycleMap[0xD8] = 12;
+    jumpCycleMap[0xCA] = 4;
+    jumpCycleMap[0xDA] = 4;
+    jumpCycleMap[0xCC] = 12;
+    jumpCycleMap[0xDC] = 12;
+
 }
 
 byte *getPointer(ParamType pt, bool hlAsRam = true) {
@@ -56,11 +76,16 @@ byte *getPointer(ParamType pt, bool hlAsRam = true) {
         case E: return &regDE.lo; 
         case H: return &regHL.hi; 
         case L: return &regHL.lo;
-        case AF: return &regAF.hi;
-        case BC: return &regBC.hi;
-        case DE: return &regDE.hi;
+        case AF: return &regAF.lo;
+        case BC: return &regBC.lo;
+        case DE: return &regDE.lo;
         case N: return &memory::ram[regPC + 1]; 
-        case HL: return hlAsRam ? &memory::ram[toShort(regHL.hi, regHL.lo)] : &regHL.hi;
+        case HL: {
+            if (toShort(regHL.hi, regHL.lo) >= 0x8000 && toShort(regHL.hi, regHL.lo) < 0xA000) {
+                cout << "HL ACCESSING VRAM: " << Short(toShort(regHL.hi, regHL.lo)) << endl;
+            }
+            return hlAsRam ? &memory::ram[toShort(regHL.hi, regHL.lo)] : &regHL.hi;
+        }
         default:
             break;
     }
@@ -71,11 +96,11 @@ byte *getPointer(ParamType pt, bool hlAsRam = true) {
     return nullptr;
 }
 
-void handleGoto(ushort address) {
-
+int handleGoto(ushort address) {
+    return 0;
 }
 
-void handleLDH(const OpCode &op) {
+int handleLDH(const OpCode &op) {
     bool srcIsA = op.params[1] == A;
 
     if (srcIsA) {
@@ -88,9 +113,25 @@ void handleLDH(const OpCode &op) {
         byte *p = getPointer(op.params[1]);
         regAF.hi = bus::read(*p | 0xFF00);
     }
+    return 0;
 }
 
-void handleLD(const OpCode &op) {
+ushort getAddrValue(ParamType op, short srcValue) {
+    switch(op) {
+        case HL: return *((ushort *)&regHL);
+        case AF: return *((ushort *)&regAF);
+        case BC: return *((ushort *)&regBC);
+        case DE: return *((ushort *)&regDE);
+        case NN: return srcValue;
+        case N: return 0xFF00 | srcValue;
+        default: 
+            cout << "ERROR BAD ADDR VAL: " << endl;
+            exit(-1);
+            return 0;
+    }
+}
+
+int handleLD(const OpCode &op) {
     RegParamType srcType;
     RegParamType dstType;
 
@@ -106,9 +147,9 @@ void handleLD(const OpCode &op) {
     if (sit == paramTypeMap.end()) {
         if (op.params[1] == N) {
             srcValue = bus::read(regPC + 1);
-        } else if (op.params[1] == NN){
-            srcValue = bus::read(regPC + 1) << 8;
-            srcValue |= bus::read(regPC + 2);
+        } else if (op.params[1] == NN) {
+            srcValue = bus::read(regPC + 1);
+            srcValue |= bus::read(regPC + 2) << 8;
         } else {
             cout << "Unknown LD Source Type " << endl;
             exit(-1);
@@ -134,8 +175,11 @@ void handleLD(const OpCode &op) {
     if (dit == paramTypeMap.end()) {
         if (op.params[0] == N) {
             //
+            //exit(-1);
         } else if (op.params[0] == NN){
             //
+            //exit(-1);
+            
         } else {
             cout << "Unknown LD Dest Type " << endl;
             exit(-1);
@@ -159,11 +203,25 @@ void handleLD(const OpCode &op) {
     }
 
     switch(op.mode) {
-        case ATypeRA:
+        case ATypeRA: {
 
-            bus::write(dstValue, srcValue);
+            ushort addr = getAddrValue(op.params[0], srcValue);
+            bus::write(addr, srcValue);
+        }
             break;
-        case ATypeAR:
+        case ATypeAR: {
+            ushort addr = getAddrValue(op.params[1], srcValue);
+
+            if (dstType == RPTLo) {
+                dst->lo = bus::read(addr); ;
+            } else if (dstType == RPTHi) {
+                dst->hi = bus::read(addr); ;
+            } else {
+                *((ushort *)dst) = bus::read(addr); ;
+            }
+            
+            break;
+        } break;
         case ATypeRR:
         case ATypeIR:
             {
@@ -179,37 +237,146 @@ void handleLD(const OpCode &op) {
         default:
             cout << "INVALID OP FLAG" << endl;
             exit(-1);
-            return;
+            return 0;
             
     }
+    return 0;
 
 }
 
-void handleNOP(const OpCode &op) {
+int handleNOP(const OpCode &op) {
+    cout << " NOP " << endl;
+    sleep(1);
+    return 0;
 
 }
 
-void handleJumpRelative(const OpCode &op) {
-    byte b = bus::read(regPC + 1);
-    ushort location = regPC + (char)b;
+int handleCB(const OpCode &op) {
+    int code = bus::read(regPC + 1);
+    byte reg = code & 7;
+    byte bitOp = (code >> 6) & 3;
+    byte bit = (code >> 3) & 7;
+    byte *pReg = nullptr;
 
-    if (DEBUG) cout << "Jumping Relative: " << (int)(char)b << " to " << location << endl;
+    switch(reg) {
+        case 0: pReg = &regBC.hi; break;
+        case 1: pReg = &regBC.lo; break;
+        case 2: pReg = &regDE.hi; break;
+        case 3: pReg = &regDE.lo; break;
+        case 4: pReg = &regHL.hi; break;
+        case 5: pReg = &regHL.lo; break;
+        case 6: pReg = &memory::ram[toShort(regHL.hi, regHL.lo)]; break;
+        case 7: pReg = &regAF.hi; break;
+            default:
+                cout << "INVALID REG " << endl;
+                exit(-1);
+    }
+
+    if (bitOp) {
+        switch(bitOp) {
+            case 1:
+                set_flag(FlagZ, (*pReg) & (1 << bit));
+                set_flag(FlagN, false);
+                set_flag(FlagH, true);
+                break;
+            case 2:
+                (*pReg) &= ~(1 << bit);
+                break;
+            case 3:
+                (*pReg) |= (1 << bit);
+                break;
+            default:
+                cout << "INVALID BIT " << endl;
+                exit(-1);
+        }
+
+        return 0;
+    }
+
+    bitOp = bit;
+    int cBit = get_flag(FlagC);
+
+    switch (bitOp) {
+        case 0: //RLC
+            (*pReg) <<= (1 + get_flag(FlagC));
+            break;
+        case 1: //RRC
+            (*pReg) >>= (1 + get_flag(FlagC));
+            break;
+        case 2: //RL
+            (*pReg) <<= 1;
+            break;
+        case 3: //RR
+            (*pReg) >>= 1;
+            break;
+        case 4: //SLA
+            set_flag(FlagC, (*pReg) & 0x80);
+            (*pReg) <<= 1;
+            (*pReg) |= cBit;
+            break;
+        case 5: //SRA
+            set_flag(FlagC, (*pReg) & 1);
+            (*pReg) >>= 1;
+            (*pReg) |= (cBit << 7);
+            break;
+        case 6: //SRL
+            set_flag(FlagC, (*pReg) & 1);
+            (*pReg) >>= 1;
+            break;
+        case 7: //SWAP
+            set_flag(FlagC, 0);
+            (*pReg) = (((*pReg) & 0xF0) >> 4) | (((*pReg) & 0xF) << 4);
+            break;
+        default:
+            cout << "INVALID BIT2 " << endl;
+            exit(-1);
+    }
+
+    set_flag(FlagH, 0);
+    set_flag(FlagN, 0);
+    return 0;
+
+}
+
+int conditionalJump(ushort location, const OpCode &op, bool &didJump) {
+    int diff = jumpCycleMap[op.value];
 
     if (op.mode == ATypeJ) {
-        regPC = location - op.length;
+        regPC = location;
+        didJump = true;
+        return 0;
     } else if (op.mode == ATypeJ_C && get_flag(FlagC)) {
-        regPC = location - op.length;
+        regPC = location;
+        didJump = true;
+        return diff;
     } else if (op.mode == ATypeJ_NC && !get_flag(FlagC)) {
-        regPC = location - op.length;
+        regPC = location;
+        didJump = true;
+        return diff;
     } else if (op.mode == ATypeJ_NZ && !get_flag(FlagZ)) {
-        regPC = location - op.length;
+        regPC = location;
+        didJump = true;
+        return diff;
     } else if (op.mode == ATypeJ_Z && get_flag(FlagZ)) {
-        regPC = location - op.length;
+        regPC = location;
+        didJump = true;
+        return diff;
     }
+
+    return 0;
 }
 
-void handleJump(const OpCode &op) {
+int handleJumpRelative(const OpCode &op) {
+    byte b = bus::read(regPC + 1);
+    ushort location = regPC + (char)b;
+    bool didJump;
+
+    return conditionalJump(location, op, didJump);
+}
+
+int handleJump(const OpCode &op) {
     ushort location = 0;
+    bool didJump;
 
     switch(op.params[0]) {
         case NN:
@@ -224,21 +391,30 @@ void handleJump(const OpCode &op) {
 
     }
 
+    return conditionalJump(location - op.length, op, didJump);
+
+/*
     if (op.mode == ATypeJ) {
         regPC = location - op.length;
+        return 0;
     } else if (op.mode == ATypeJ_C && get_flag(FlagC)) {
         regPC = location - op.length;
+        return 4;
     } else if (op.mode == ATypeJ_NC && !get_flag(FlagC)) {
         regPC = location - op.length;
+        return 4;
     } else if (op.mode == ATypeJ_NZ && !get_flag(FlagZ)) {
         regPC = location - op.length;
+        return 4;
     } else if (op.mode == ATypeJ_Z && get_flag(FlagZ)) {
         regPC = location - op.length;
+        return 4;
     }
-
+    return 0;
+*/
 }
 
-void handleDAA(const OpCode &op) {
+int handleDAA(const OpCode &op) {
     if (!get_flag(FlagN)) {
         ushort a = regAF.hi;
         byte nl = (regAF.hi & 0x0f);
@@ -269,36 +445,54 @@ void handleDAA(const OpCode &op) {
 
     set_flag(FlagZ, regAF.hi == 0);
     set_flag(FlagH, false);
+    return 0;
 }
 
 
 ushort lastCallAddress = 0;
 
-void handlePOP(const OpCode &op) {
+int handlePOP(const OpCode &op) {
     ushort *p = (ushort *)getPointer(op.params[0], false);
     *p = spop();
+    return 0;
 }
 
-void handlePUSH(const OpCode &op) {
+int handlePUSH(const OpCode &op) {
     ushort *p = (ushort *)getPointer(op.params[0], false);
     push(*p);
+    return 0;
 }
 
-void handleCALL(const OpCode &op) {
-    lastCallAddress = regPC + 1;
+int handleCALL(const OpCode &op) {
+    ushort lca = regPC + op.length;
+    bool didJump;
+    ushort location = toShort(bus::read(regPC + 1), bus::read(regPC + 2)) - op.length;
+    //lastCallAddress = regPC + op.length;
 
-    cout << "HANDLING CALL: " << Short(regPC) << endl;
+    //cout << "HANDLING CALL: " << Short(regPC) << endl;
 
-    cpu::push((ushort)(regPC + 1));
+    int ret = conditionalJump(location, op, didJump);
 
-    handleJump(op);
+    if (didJump) {
+        cpu::push((ushort)(lca));
+        lastCallAddress = lca;
+    }
+
+    return ret;
 }
 
-void handleRET(const OpCode &op) {
-    regPC = cpu::spop() - op.length;
+int handleRET(const OpCode &op) {
+    bool didJump;
+    ushort location = cpu::spop();
 
-    cout << "HANDLING RET: " << Short(lastCallAddress) << " - " << Short(regPC) << endl;
-    //sleep(50);
+    //cout << "HANDLING RET: " << Short(lastCallAddress) << " - " << Short(regPC) << endl;
+    int ret = conditionalJump(location - 1, op, didJump);
+    
+    if (!didJump) {
+        cpu::push(location);
+    }
+
+    return ret;
 }
 
 void setFlags(byte first, byte second, bool add, bool withCarry) {
@@ -315,51 +509,58 @@ void setFlags(byte first, byte second, bool add, bool withCarry) {
         set_flag(FlagN, true);
         set_flag(FlagH, (first & 0xF) - (second & 0xF) - (withCarry && get_flag(FlagC)) < 0);
     }
+
+    return;
 }
 
-void handleCP(const OpCode &op) { 
+int handleCP(const OpCode &op) { 
     byte *val = getPointer(op.params[0]);
 
     setFlags(regAF.hi, *val, false, false);
+    return 0;
 }
 
-void handleADC(const OpCode &op) {
+int handleADC(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     ushort a = regAF.hi + *val + get_flag(FlagC);
     setFlags(regAF.hi, *val, true, true);
 
     regAF.hi = a & 0x00FF;
+    return 0;
 }
 
-void handleADD(const OpCode &op) {
+int handleADD(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     ushort a = regAF.hi + *val;
     setFlags(regAF.hi, *val, true, false);
 
     regAF.hi = a & 0x00FF;
+    return 0;
 }
 
-void handleSUB(const OpCode &op) {
+int handleSUB(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     short a = regAF.hi - *val;
     setFlags(regAF.hi, *val, false, false);
 
     regAF.hi = a & 0x00FF;
+    return 0;
 }
 
-void handleSBC(const OpCode &op) {
+int handleSBC(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     short a = regAF.hi - *val - get_flag(FlagC);
     setFlags(regAF.hi, *val, false, true);
 
     regAF.hi = a & 0x00FF;
+    return 0;
 }
 
-void handleAND(const OpCode &op) {
+int handleAND(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     regAF.hi &= *val;
@@ -368,9 +569,10 @@ void handleAND(const OpCode &op) {
     set_flag(FlagN, false);
     set_flag(FlagH, true);
     set_flag(FlagC, 0);
+    return 0;
 }
 
-void handleOR(const OpCode &op) {
+int handleOR(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     regAF.hi |= *val;
@@ -379,9 +581,10 @@ void handleOR(const OpCode &op) {
     set_flag(FlagN, false);
     set_flag(FlagH, false);
     set_flag(FlagC, 0);
+    return 0;
 }
 
-void handleXOR(const OpCode &op) {
+int handleXOR(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
     regAF.hi ^= *val;
@@ -390,6 +593,7 @@ void handleXOR(const OpCode &op) {
     set_flag(FlagN, false);
     set_flag(FlagH, false);
     set_flag(FlagC, 0);
+    return 0;
 }
 
 byte getVal(ParamType pt) {
@@ -410,87 +614,103 @@ byte getVal(ParamType pt) {
     }
 }
 
-void handleLDD(const OpCode &op) {
+int handleLDD(const OpCode &op) {
     handleLD(op);
     ushort *p = (ushort *)&regHL;
     (*p)--;
+    return 0;
 }
 
-void handleLDI(const OpCode &op) {
+int handleLDI(const OpCode &op) {
     handleLD(op);
     ushort *p = (ushort *)&regHL;
     (*p)++;
+    return 0;
 }
 
-void handleINC(const OpCode &op) {
+int handleINC(const OpCode &op) {
+    ushort val = 0;
+
     switch(op.params[0]) {
-        case A: regAF.hi++; break;
-        case B: regBC.hi++; break;
-        case C: regBC.lo++; break;
-        case D: regDE.hi++; break;
-        case E: regDE.lo++; break;
-        case H: regHL.hi++; break;
-        case L: regHL.lo++; break;
-        case BC: (*((ushort *)&regBC))++; break;
-        case DE: (*((ushort *)&regDE))++; break;
+        case A: regAF.hi++; val = regAF.hi; break;
+        case B: regBC.hi++; val = regBC.hi; break;
+        case C: regBC.lo++; val = regBC.lo; break;
+        case D: regDE.hi++; val = regDE.hi; break;
+        case E: regDE.lo++; val = regDE.lo; break;
+        case H: regHL.hi++; val = regHL.hi; break;
+        case L: regHL.lo++; val = regHL.lo; break;
+        case BC: (*((ushort *)&regBC))++; val = (*((ushort *)&regBC)); cout << "SET BC TO " << Short(val) << endl; return 0;
+        case DE: (*((ushort *)&regDE))++; val = (*((ushort *)&regDE)); return 0;
         case HL: {
             if (op.mode == ATypeA) {
                 byte b = bus::read((*((ushort *)&regHL)));
                 b++;
                 bus::write((*((ushort *)&regHL)), b);
+                val = b;
+                return 0;
             } else {
                 (*((ushort *)&regHL))++; 
+                val = (*((ushort *)&regHL)); 
             }
         } break;
         default:
             cout << "INVALID INC FLAG" << endl;
             exit(-1);
-            return;
+            return 0;
     }
 
-    set_flag(FlagZ, regAF.hi == 0);
+    set_flag(FlagZ, val == 0);
     set_flag(FlagN, 0);
-    set_flag(FlagH, (regAF.hi & 0xF) + 1 > 0xF);
+    set_flag(FlagH, (val & 0xF) + 1 > 0xF);
+    return 0;
 }
 
-void handleDEC(const OpCode &op) {
+int handleDEC(const OpCode &op) {
+    ushort val = 0;
+
     switch(op.params[0]) {
-        case A: regAF.hi--; break;
-        case B: regBC.hi--; break;
-        case C: regBC.lo--; break;
-        case D: regDE.hi--; break;
-        case E: regDE.lo--; break;
-        case H: regHL.hi--; break;
-        case L: regHL.lo--; break;
-        case BC: (*((ushort *)&regBC))--; break;
-        case DE: (*((ushort *)&regDE))--; break;
+        case A: regAF.hi--; val = regAF.hi; break;
+        case B: regBC.hi--; val = regBC.hi; break;
+        case C: regBC.lo--; val = regBC.lo; break;
+        case D: regDE.hi--; val = regDE.hi; break;
+        case E: regDE.lo--; val = regDE.lo; break;
+        case H: regHL.hi--; val = regHL.hi; break;
+        case L: regHL.lo--; val = regHL.lo; break;
+        case BC: (*((ushort *)&regBC))--; val = (*((ushort *)&regBC)); return 0; //cout << "DECD BC" << endl; return;
+        case DE: (*((ushort *)&regDE))--; val = (*((ushort *)&regDE)); return 0;
         case HL: {
             if (op.mode == ATypeA) {
                 byte b = bus::read((*((ushort *)&regHL)));
                 b--;
                 bus::write((*((ushort *)&regHL)), b);
+                val = b;
             } else {
                 (*((ushort *)&regHL))--; 
+                val = (*((ushort *)&regHL)); 
+                return 0;
             }
         } break;
         default:
             cout << "INVALID DEC FLAG" << endl;
             exit(-1);
-            return;
+            return 0;
     }
 
-    set_flag(FlagZ, regAF.hi == 0);
+    //cout << "FUCKING WITH FLAGS..." << endl;
+    set_flag(FlagZ, val == 0);
     set_flag(FlagN, 1);
-    set_flag(FlagH, (regAF.hi & 0xF) - 1 < 0);
+    set_flag(FlagH, (val & 0xF) == 0x0F);
+    return 0;
 }
 
-void handleRLA(const OpCode &op) {
+int handleRLA(const OpCode &op) {
     byte b = regAF.hi & (1 << 7);
     regAF.hi <<= 1;
     regAF.hi &= (b);
+    return 0;
 }
 
-void handleRLCA(const OpCode &op) {
+int handleRLCA(const OpCode &op) {
     byte b = regAF.hi & (1 << 7);
     regAF.hi <<= 1;
     
@@ -499,15 +719,17 @@ void handleRLCA(const OpCode &op) {
     } else {
         set_flag(FlagC, false);
     }
+    return 0;
 }
 
-void handleRRA(const OpCode &op) {
+int handleRRA(const OpCode &op) {
     byte b = regAF.hi & 1;
     regAF.hi >>= 1;
     regAF.hi &= (b << 7);
+    return 0;
 }
 
-void handleRRCA(const OpCode &op) {
+int handleRRCA(const OpCode &op) {
     byte b = regAF.hi & 1;
     regAF.hi >>= 1;
     
@@ -516,21 +738,24 @@ void handleRRCA(const OpCode &op) {
     } else {
         set_flag(FlagC, false);
     }
+    return 0;
 }
 
-void handleDI(const OpCode &op) {
+int handleDI(const OpCode &op) {
     interruptsEnabled = false;
     cout << "DISABLED INT" << endl;
     //sleep(3);
+    return 0;
 }
 
-void handleEI(const OpCode &op) {
-    interruptsEnabled = true;
+int handleEI(const OpCode &op) {
+    eiCalled = true;
     cout << "ENABLED INT" << endl;
     //sleep(3);
+    return 0;
 }
 
-void handleRST(const OpCode &op) {
+int handleRST(const OpCode &op) {
     ushort *sp = (ushort *)&regSP;
     *sp = (*sp) - 2;
     bus::write(*sp, (regPC + 1) & 0xFF);
@@ -552,6 +777,7 @@ void handleRST(const OpCode &op) {
     }
 
     regPC -= 1;
+    return 0;
 }
 
 void init_handlers() {
@@ -585,11 +811,12 @@ void init_handlers() {
     handlerMap[DAA] = handleDAA;
     handlerMap[PUSH] = handlePUSH;
     handlerMap[POP] = handlePOP;
+    handlerMap[CB] = handleCB;
 
     initParamTypeMap();
 }
 
-void handle_op(OpCode &opCode) {
+int handle_op(OpCode &opCode) {
     std::map<Op, HANDLER>::iterator it = handlerMap.find(opCode.op);
 
     if (it == handlerMap.end()) {
@@ -597,7 +824,14 @@ void handle_op(OpCode &opCode) {
         exit(-1);
     }
 
-    it->second(opCode);
+    int ret = it->second(opCode);
+
+    if (opCode.op != EI && eiCalled) {
+        eiCalled = false;
+        interruptsEnabled = true;
+    }
+
+    return ret;
 }
 
 }

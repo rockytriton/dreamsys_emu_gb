@@ -5,14 +5,23 @@
 #include "io.h"
 #include "cpu.h"
 
+#include <unistd.h>
+
 namespace dsemu::bus {
 
     byte read(ushort address) {
         if (address < 0x8000) {
             return cart::read(address);
-        } else if (address < 0xFE00) {
+        } else if (address < 0xA000) {
+            cout << "READ TO VIDEO RAM: " << Short(address) << endl;
+            //sleep(2);
+            return memory::read(address);
+        } 
+        else if (address < 0xFE00) {
+
             return memory::read(address);
         } else if (address < 0xFEA0) {
+
             return ppu::readOAM(address - 0xFE00);
         } else if (address < 0xFEFF) {
             //cout << "WTF THIS ISn'T USEABLE" << endl;
@@ -29,10 +38,21 @@ namespace dsemu::bus {
     void write(ushort address, byte b) {
         if (address < 0x8000) {
             //cart::write(address, b);
-        } else if (address < 0xFE00) {
+        } else if (address < 0xA000) {
+            if (DEBUG) cout << "WRITING TO VIDEO RAM: " << Short(address) << endl;
+            //sleep(2);
             memory::write(address, b);
+        } 
+        else if (address < 0xFE00) {
+
+            memory::write(address, b);
+
+
+            //sleep(1);
+
         } else if (address < 0xFEA0) {
             ppu::writeOAM(address - 0xFE00, b);
+
         } else if (address < 0xFEFF) {
             //cout << "WTF THIS ISn'T USEABLE" << endl;
         } else if (address < 0xFF80) {

@@ -2,6 +2,7 @@
 #include "ppu.h"
 #include "cpu.h"
 #include "memory.h"
+#include "bus.h"
 
 #include <map>
 #include <unistd.h>
@@ -44,8 +45,56 @@ byte readLCDControl() {
 }
 
 void writeLCDControl(byte b) {
-    //cout << "WRITING LCD CONTROL: " << Byte(b) << endl;
+    cout << "WRITING LCD CONTROL: " << Byte(b) << endl;
+
+    sleepMs(100);
+
     lcdControl = b;
+}
+
+void writeDMA(byte b) {
+    cout << endl << "DOING DMA WRITE: " << Byte(b) << endl << endl;
+    //sleep(7);
+
+    for (int i=0; i<0xA0; i++) {
+        byte d = bus::read((b * 0x100) + i);
+        bus::write(0xFE00 + i, d);
+    }
+    /*
+        80
+        02
+        02
+        02
+        03
+        03
+        04
+        04
+        04
+        05
+        05
+        06
+    */
+
+
+    //sleep(4);
+
+    cout << "VRAM: " << endl;
+
+    for (int i=0x8000; i<0x80FF; i++) {
+        if ((i % 32) == 0) {
+            cout << endl;
+        }
+
+        cout << " " << Byte(memory::ram[i]);
+    }
+
+    sleep(1);
+}
+
+byte readDMS() {
+    cout << endl << "DOING DMA READ" << endl << endl;
+    sleep(2);
+    return 0;
 }
 
 #define ADD_MEMORY_HANDLER(X) handlerMap[X] = std::make_pair([]() -> byte { return memory::read(X); }, [](byte b) -> void { memory::write(X, b); });
@@ -58,6 +107,7 @@ void init() {
     handlerMap[0xFF40] = std::make_pair(readLCDControl, writeLCDControl);
     handlerMap[0xFF41] = std::make_pair(readLCDStats, writeLCDStats);
     handlerMap[0xFF44] = std::make_pair(ppu::getCurrentLine, noWrite);
+    handlerMap[0xFF46] = std::make_pair(readDMS, writeDMA);
 
     ADD_MEMORY_HANDLER(0xFF47);
     ADD_MEMORY_HANDLER(0xFF48);

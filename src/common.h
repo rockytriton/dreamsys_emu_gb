@@ -5,6 +5,9 @@
 #include <string>
 #include <vector>
 #include <iomanip>
+#include <unistd.h>
+#include <chrono>
+#include <thread>
 
 using std::string;
 using std::vector;
@@ -44,6 +47,11 @@ inline std::ostream &operator <<(std::ostream &os, Short s) {
 inline std::ostream &operator <<(std::ostream &os, Int64 s) {
     os << std::hex << std::setfill('0') << std::setw(16) << s.s << std::dec;
     return os;
+}
+
+inline void sleepMs(int ms) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+
 }
 
 static const bool DEBUG = true;

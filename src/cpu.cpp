@@ -3,22 +3,18 @@
 #include "ppu.h"
 #include "bus.h"
 
-#include <unistd.h>
-#include <iomanip>
-#include <chrono>
-#include <thread>
 
 #include <SDL2/SDL.h>
 
 namespace dsemu {
 namespace cpu {
 
-const ushort IV_VBLANK = 0x40;
+//const ushort IV_VBLANK = 0x40;
 
 extern bool interruptsEnabled;
 
 void init_handlers();
-void handle_op(OpCode &opCode);
+int handle_op(OpCode &opCode);
 
 Register regAF;
 Register regBC;
@@ -70,7 +66,6 @@ uint64_t getTickCount() {
     return totalTicks;
 }
 
-	SDL_Window *window;                    // Declare a pointer
 
 void init() {
     regPC = 0x100;
@@ -81,21 +76,10 @@ void init() {
     *((short *)&regSP) = 0xFFFE;
 
     init_handlers();
-
-    SDL_Init(SDL_INIT_VIDEO);
-
-    // Create an application window with the following settings:
-    window = SDL_CreateWindow(
-        "An SDL2 window",                  // window title
-        50,           // initial x position
-        50,           // initial y position
-        640,                               // width, in pixels
-        480,                               // height, in pixels
-        SDL_WINDOW_OPENGL  | SDL_WINDOW_RESIZABLE                // flags - see below
-    );
 }
 
-int cpuSpeed = 0; //5;
+int cpuSpeed = 0; //1; //5;
+int n = 0;
 
 void tick() {
     totalTicks++;
@@ -112,15 +96,21 @@ void tick() {
     byte b = bus::read(regPC);
 
     OpCode opCode = opCodes[b];
+    n++;
 
-    if (DEBUG) cout << Int64(totalTicks) << ": " << Short(regPC) << ": " << Byte(b) << " " << Byte(bus::read(regPC + 1)) << " " << Byte(bus::read(regPC + 2)) << " (" << opCode.name << ") "
+    if (DEBUG) cout << Int64(n) << ": " << Short(regPC) << ": " << Byte(b) << " " << Byte(bus::read(regPC + 1)) << " " << Byte(bus::read(regPC + 2)) << " (" << opCode.name << ") "
             << " - A: " << Byte(regAF.hi) << " F: " << Byte(regAF.lo)
-            << " - BC: " << Short(toShort(regBC.hi, regBC.lo))
-            << " - DE: " << Short(toShort(regDE.hi, regDE.lo))
-            << " - HL: " << Short(toShort(regHL.hi, regHL.lo))
+            << " - BC: " << Short(toShort(regBC.lo, regBC.hi))
+            << " - DE: " << Short(toShort(regDE.lo, regDE.hi))
+            << " - HL: " << Short(toShort(regHL.lo, regHL.hi))
+            << " - Cycles: " << (totalTicks - 1)
             << endl;
 
-    handle_op(opCode);
+    int n = handle_op(opCode);
+
+    if (opCode.value == 0xff) {
+        sleep(5);
+    }
 
     regPC += opCode.length;
 
@@ -138,17 +128,7 @@ void tick() {
         //std::this_thread::sleep_for(std::chrono::milliseconds(5000));
     }
 
-    remainingTicks = opCode.cycles - 1;
-
-    SDL_Event e;
-    if (SDL_PollEvent(&e) > 0)
-    {
-        SDL_UpdateWindowSurface(window);
-
-        if (e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_CLOSE) {
-            exit(0);
-        }
-    }
+    remainingTicks = ((n + opCode.cycles) / 4) - 1;
 }
 
 void changePC(ushort address) {
@@ -173,6 +153,9 @@ void handleInterrupt(byte flag, bool request) {
             changePC(0x40);
             //cpuSpeed = 500;
         }
+    } else {
+        cout << "OK ANOTHER INTERRUPT..." << endl;
+        //sleep(10);
     }
 }
 
