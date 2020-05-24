@@ -476,7 +476,7 @@ int handleCALL(const OpCode &op) {
     ushort location = toShort(bus::read(regPC + 1), bus::read(regPC + 2)) - op.length;
     //lastCallAddress = regPC + op.length;
 
-    cout << "HANDLING CALL: " << Short(regPC) << endl;
+    //cout << "HANDLING CALL: " << Short(regPC) << endl;
 
 
     int ret = conditionalJump(location, op, didJump);
@@ -493,10 +493,10 @@ int handleRET(const OpCode &op) {
     bool didJump;
     ushort location = cpu::spop();
 
-    cout << "HANDLING RET: " << Short(lastCallAddress) << " - " << Short(location) << endl;
+    //cout << "HANDLING RET: " << Short(lastCallAddress) << " - " << Short(location) << endl;
     int ret = conditionalJump(location - 1, op, didJump);
 
-    cout << "RET - AFTER RET: " << ret << " - " << Short(regPC) << endl;
+    //cout << "RET - AFTER RET: " << ret << " - " << Short(regPC) << endl;
     
     if (!didJump) {
         cpu::push(location);
@@ -509,7 +509,7 @@ int handleRETI(const OpCode &op) {
     interruptsEnabled = true;
     int n = handleRET(op);
 
-    cout << "RETI - AFTER RET: " << n << " - " << Short(regPC) << endl;
+    //cout << "RETI - AFTER RET: " << n << " - " << Short(regPC) << endl;
 
     return n;
 }

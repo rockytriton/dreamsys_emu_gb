@@ -73,13 +73,10 @@ void writeDMA(byte b) {
     cout << endl;
 
     cpu::extraCycles = 0;
-
-    sleep(1);
 }
 
 byte readDMS() {
     cout << endl << "DOING DMA READ" << endl << endl;
-    sleep(2);
     return 0;
 }
 

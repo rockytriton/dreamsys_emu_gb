@@ -13,7 +13,7 @@ namespace dsemu::bus {
         if (address < 0x8000) {
             return cart::read(address);
         } else if (address < 0xA000) {
-            cout << "READ TO VIDEO RAM: " << Short(address) << endl;
+            //cout << "READ TO VIDEO RAM: " << Short(address) << endl;
             //sleep(2);
             return memory::read(address);
         } 
@@ -29,7 +29,7 @@ namespace dsemu::bus {
         } else if (address < 0xFF80) {
             return io::read(address);
         } else if (address < 0xFFFF) {
-            cout << "READING HRAM: " << Short(address) << " = " << Byte(memory::read(address)) << endl;
+            //cout << "READING HRAM: " << Short(address) << " = " << Byte(memory::read(address)) << endl;
             return memory::read(address);
         } else {
             return cpu::getInterruptsEnableFlag();
@@ -59,7 +59,7 @@ namespace dsemu::bus {
         } else if (address < 0xFF80) {
             io::write(address, b);
         } else if (address < 0xFFFF) {
-            cout << "WRITING HRAM: " << Short(address) << " = " << Byte(b) << endl;
+            //cout << "WRITING HRAM: " << Short(address) << " = " << Byte(b) << endl;
             memory::write(address, b);
         } else {
             cpu::setInterruptsEnableFlag(b);

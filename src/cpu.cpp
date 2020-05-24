@@ -38,21 +38,13 @@ void push(ushort s) {
     bus::write(*sp, s & 0xFF);
     bus::write((*sp) + 1, (s >> 8) & 0xFF);
 
-    cout << "HANDLING PUSH: " << Short(s) << endl;
-
-    if (s == 0x02BD) {
-        sleep(5);
-    }
+    //cout << "HANDLING PUSH: " << Short(s) << endl;
 }
 
 void push(byte b) {
     ushort *sp = (ushort *)&regSP;
     *sp = (*sp) - 1;
     bus::write(*sp, b);
-
-    if (b == 0xBD) {
-        sleep(5);
-    }
 }
 
 ushort spop() {
@@ -102,7 +94,7 @@ void tick() {
 
     if (n > 0xEF90) {
         //cpuSpeed = 500;
-        DEBUG = true;
+        //DEBUG = true;
     }
 
     byte b = bus::read(regPC);
@@ -157,7 +149,7 @@ void handleInterrupt(byte flag, bool request, bool pcp1) {
         if (request && interruptsEnabled && (intEnableFlag & 1)) {
             cout << "CPU:> HANDLING VBLANK" << endl;
             intRequestFlag &= ~1;
-            cout << "Disabling VBlank: " << Byte(intRequestFlag) << endl;
+            //cout << "Disabling VBlank: " << Byte(intRequestFlag) << endl;
 
             if (pcp1) {
                 push((ushort)(regPC + 1));
@@ -188,7 +180,6 @@ byte getInterruptsRequestsFlag() {
 void setInterruptsEnableFlag(byte f) {
     intEnableFlag = f;
     cout << endl << "WRITING INT ENABLE FLAG: " << Byte(f) << endl << endl;
-    sleep(2);
 }
 
 void setInterruptsRequestsFlag(byte f) {

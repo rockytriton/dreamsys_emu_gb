@@ -5,7 +5,7 @@
 #include "bus.h"
 #include "io.h"
 
- bool DEBUG = true;
+bool DEBUG = false;
 
 namespace dsemu {
 

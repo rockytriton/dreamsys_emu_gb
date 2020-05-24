@@ -18,11 +18,30 @@ ScrollInfo scrollInfo;
 int currentFrame = 0;
 byte currentLine = 0;
 
+struct OAMEntry {
+    byte x;
+    byte y;
+    byte tile;
+    byte flags;
+};
+
+/*
+OAM Entry:
+    PosX
+    PosY
+    Tile Num
+    Priority bit
+    FlipX bit
+    FlipY bit
+    Palette bits
+*/
+
 byte oamRAM[160];
 
 void init() {
     currentFrame = 0;
     currentLine = 0;
+    memset(oamRAM, 0, sizeof(oamRAM));
 
     SDL_Init(SDL_INIT_VIDEO);
 
@@ -70,6 +89,13 @@ void drawFrame() {
 	}
 	}
 
+    OAMEntry *entry = (OAMEntry *)&oamRAM;
+
+    cout << endl << "FIRST SPRITE " << Byte(entry->x) << "," << Byte(entry->y) << " TILE: " << Byte(entry->tile) << endl << endl;
+
+    entry = (OAMEntry *)&oamRAM[4];
+    cout << endl << "SECOND SPRITE " << Byte(entry->x) << "," << Byte(entry->y) << " TILE: " << Byte(entry->tile) << endl << endl;
+
 	SDL_UpdateTexture(sdlTexture, NULL, screen->pixels, screen->pitch);
 	SDL_RenderClear(sdlRenderer);
 	SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
@@ -91,7 +117,7 @@ byte readOAM(ushort address) {
 
     cout << endl;
 
-    sleep(2);
+    //sleep(2);
 
 
     return oamRAM[address];
@@ -127,7 +153,7 @@ void tick() {
         drawFrame();
         cout << endl << "PPU:> NEW FRAME: " << currentFrame << endl << endl;
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
         cpu::handleInterrupt(cpu::IVBlank, true, false);
     }
