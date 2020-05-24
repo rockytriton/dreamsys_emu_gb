@@ -165,7 +165,7 @@ void handleInterrupt(byte flag, bool request, bool pcp1) {
         }
     } else {
         cout << "OK ANOTHER INTERRUPT..." << endl;
-        //sleep(10);
+        sleep(10);
     }
 }
 
@@ -179,7 +179,7 @@ byte getInterruptsRequestsFlag() {
 
 void setInterruptsEnableFlag(byte f) {
     intEnableFlag = f;
-    cout << endl << "WRITING INT ENABLE FLAG: " << Byte(f) << endl << endl;
+    cout << endl << "WRITING INT ENABLE FLAG: " << Byte(f) << " - " << Byte(intRequestFlag) << endl << endl;
 }
 
 void setInterruptsRequestsFlag(byte f) {

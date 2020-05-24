@@ -40,7 +40,7 @@ namespace dsemu::bus {
         if (address < 0x8000) {
             //cart::write(address, b);
         } else if (address < 0xA000) {
-            if (DEBUG) cout << "WRITING TO VIDEO RAM: " << Short(address) << endl;
+            //if (DEBUG) cout << "WRITING TO VIDEO RAM: " << Short(address) << endl;
             //sleep(2);
             memory::write(address, b);
         } 

@@ -201,12 +201,12 @@ void tick() {
         if (DEBUG) cout << "PPU:> NEW LINE: " << l << " FRAME: " << currentFrame << endl;
     }
 
-    if (l != currentLine && l == 145) {
+    if (l != currentLine && l == 144) {
         currentFrame++;
         drawFrame();
         cout << endl << "PPU:> NEW FRAME: " << currentFrame << endl << endl;
 
-        //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
         cpu::handleInterrupt(cpu::IVBlank, true, false);
     }
