@@ -129,7 +129,7 @@ void tick() {
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-        cpu::handleInterrupt(cpu::IVBlank, true);
+        cpu::handleInterrupt(cpu::IVBlank, true, false);
     }
 
     currentLine = l;

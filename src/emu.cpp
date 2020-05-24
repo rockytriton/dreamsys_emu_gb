@@ -5,6 +5,8 @@
 #include "bus.h"
 #include "io.h"
 
+ bool DEBUG = true;
+
 namespace dsemu {
 
 void run() {

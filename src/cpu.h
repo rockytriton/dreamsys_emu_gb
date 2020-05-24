@@ -143,6 +143,8 @@ extern Register regSP;
 
 extern OpCode opCodes[];
 
+extern int extraCycles;
+
 inline bool get_flag(Flags n) {
     return (regAF.lo & (1 << n)) ? 1 : 0;
 }
@@ -156,7 +158,7 @@ inline void set_flag(Flags n, bool val) {
 }
 
 void run();
-void handleInterrupt(byte flag, bool request);
+void handleInterrupt(byte flag, bool request, bool pcp1 = true);
 void tick();
 void init();
 void interrupt(Interrupts i);

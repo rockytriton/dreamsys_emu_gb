@@ -54,7 +54,7 @@ inline void sleepMs(int ms) {
 
 }
 
-static const bool DEBUG = true;
+extern bool DEBUG;
 
 /*
 ostream& operator << (std::ostream& os, complex<double> a) {

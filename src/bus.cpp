@@ -29,6 +29,7 @@ namespace dsemu::bus {
         } else if (address < 0xFF80) {
             return io::read(address);
         } else if (address < 0xFFFF) {
+            cout << "READING HRAM: " << Short(address) << " = " << Byte(memory::read(address)) << endl;
             return memory::read(address);
         } else {
             return cpu::getInterruptsEnableFlag();
@@ -58,6 +59,7 @@ namespace dsemu::bus {
         } else if (address < 0xFF80) {
             io::write(address, b);
         } else if (address < 0xFFFF) {
+            cout << "WRITING HRAM: " << Short(address) << " = " << Byte(b) << endl;
             memory::write(address, b);
         } else {
             cpu::setInterruptsEnableFlag(b);

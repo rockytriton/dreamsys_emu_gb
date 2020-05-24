@@ -54,29 +54,11 @@ void writeLCDControl(byte b) {
 
 void writeDMA(byte b) {
     cout << endl << "DOING DMA WRITE: " << Byte(b) << endl << endl;
-    //sleep(7);
 
     for (int i=0; i<0xA0; i++) {
         byte d = bus::read((b * 0x100) + i);
         bus::write(0xFE00 + i, d);
     }
-    /*
-        80
-        02
-        02
-        02
-        03
-        03
-        04
-        04
-        04
-        05
-        05
-        06
-    */
-
-
-    //sleep(4);
 
     cout << "VRAM: " << endl;
 
@@ -87,6 +69,10 @@ void writeDMA(byte b) {
 
         cout << " " << Byte(memory::ram[i]);
     }
+
+    cout << endl;
+
+    cpu::extraCycles = 0;
 
     sleep(1);
 }
@@ -124,9 +110,10 @@ byte read(ushort address) {
     }
 
     if (address == 0xFF00) {
-        //cout << endl << "JOYPAD READ: " << endl;
+        cout << endl << "JOYPAD READ: " << Byte(memory::read(address)) << endl;
+        cout << "READ: " << Byte(0xC0 | (0xF^0) | memory::read(address)) << endl;
         //sleep(2);
-        return 0;
+        return 0xC0 | (0xF^0) | memory::read(address);
     } else if (address == 0xFF01) {
         //cout << endl << "SERIAL READ: " << endl;
         //sleep(2);
@@ -171,7 +158,8 @@ void write(ushort address, byte b) {
     //sleep(1);
 
     if (address == 0xFF00) {
-        //cout << endl << "JOYPAD WRITE: " << endl;
+        cout << endl << "JOYPAD WRITE: " << Byte(b) << endl;
+        memory::write(address, b);
        // sleep(2);
         return;
     } else if (address == 0xFF01) {

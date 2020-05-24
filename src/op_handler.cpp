@@ -67,6 +67,26 @@ void initParamTypeMap() {
 
 }
 
+byte *regFromBits(byte reg) {
+    byte *pReg = nullptr;
+
+    switch(reg) {
+        case 0: pReg = &regBC.hi; break;
+        case 1: pReg = &regBC.lo; break;
+        case 2: pReg = &regDE.hi; break;
+        case 3: pReg = &regDE.lo; break;
+        case 4: pReg = &regHL.hi; break;
+        case 5: pReg = &regHL.lo; break;
+        case 6: pReg = &memory::ram[toShort(regHL.hi, regHL.lo)]; break;
+        case 7: pReg = &regAF.hi; break;
+            default:
+                cout << "INVALID REG " << endl;
+                exit(-1);
+    }
+
+    return pReg;
+}
+
 byte *getPointer(ParamType pt, bool hlAsRam = true) {
     switch(pt) {
         case A: return &regAF.hi;
@@ -84,7 +104,7 @@ byte *getPointer(ParamType pt, bool hlAsRam = true) {
             if (toShort(regHL.hi, regHL.lo) >= 0x8000 && toShort(regHL.hi, regHL.lo) < 0xA000) {
                 cout << "HL ACCESSING VRAM: " << Short(toShort(regHL.hi, regHL.lo)) << endl;
             }
-            return hlAsRam ? &memory::ram[toShort(regHL.hi, regHL.lo)] : &regHL.hi;
+            return hlAsRam ? &memory::ram[toShort(regHL.hi, regHL.lo)] : &regHL.lo;
         }
         default:
             break;
@@ -235,7 +255,7 @@ int handleLD(const OpCode &op) {
             } break;
 
         default:
-            cout << "INVALID OP FLAG" << endl;
+            cout << "INVALID OP FLAG: " << dstValue << endl;
             exit(-1);
             return 0;
             
@@ -256,21 +276,7 @@ int handleCB(const OpCode &op) {
     byte reg = code & 7;
     byte bitOp = (code >> 6) & 3;
     byte bit = (code >> 3) & 7;
-    byte *pReg = nullptr;
-
-    switch(reg) {
-        case 0: pReg = &regBC.hi; break;
-        case 1: pReg = &regBC.lo; break;
-        case 2: pReg = &regDE.hi; break;
-        case 3: pReg = &regDE.lo; break;
-        case 4: pReg = &regHL.hi; break;
-        case 5: pReg = &regHL.lo; break;
-        case 6: pReg = &memory::ram[toShort(regHL.hi, regHL.lo)]; break;
-        case 7: pReg = &regAF.hi; break;
-            default:
-                cout << "INVALID REG " << endl;
-                exit(-1);
-    }
+    byte *pReg = regFromBits(reg);
 
     if (bitOp) {
         switch(bitOp) {
@@ -383,7 +389,7 @@ int handleJump(const OpCode &op) {
             location = toShort(bus::read(regPC + 1), bus::read(regPC + 2));
             break;
         case HL:
-            location = toShort(regHL.hi, regHL.lo);
+            location = toShort(regHL.lo, regHL.hi);
             break;
         default:
             cout << "ERRO BAD JUMP" << endl;
@@ -460,6 +466,7 @@ int handlePOP(const OpCode &op) {
 int handlePUSH(const OpCode &op) {
     ushort *p = (ushort *)getPointer(op.params[0], false);
     push(*p);
+
     return 0;
 }
 
@@ -469,7 +476,8 @@ int handleCALL(const OpCode &op) {
     ushort location = toShort(bus::read(regPC + 1), bus::read(regPC + 2)) - op.length;
     //lastCallAddress = regPC + op.length;
 
-    //cout << "HANDLING CALL: " << Short(regPC) << endl;
+    cout << "HANDLING CALL: " << Short(regPC) << endl;
+
 
     int ret = conditionalJump(location, op, didJump);
 
@@ -485,14 +493,25 @@ int handleRET(const OpCode &op) {
     bool didJump;
     ushort location = cpu::spop();
 
-    //cout << "HANDLING RET: " << Short(lastCallAddress) << " - " << Short(regPC) << endl;
+    cout << "HANDLING RET: " << Short(lastCallAddress) << " - " << Short(location) << endl;
     int ret = conditionalJump(location - 1, op, didJump);
+
+    cout << "RET - AFTER RET: " << ret << " - " << Short(regPC) << endl;
     
     if (!didJump) {
         cpu::push(location);
     }
 
     return ret;
+}
+
+int handleRETI(const OpCode &op) {
+    interruptsEnabled = true;
+    int n = handleRET(op);
+
+    cout << "RETI - AFTER RET: " << n << " - " << Short(regPC) << endl;
+
+    return n;
 }
 
 void setFlags(byte first, byte second, bool add, bool withCarry) {
@@ -531,12 +550,28 @@ int handleADC(const OpCode &op) {
 }
 
 int handleADD(const OpCode &op) {
-    byte *val = getPointer(op.params[0]);
+    if (op.params[0] == A) {
+        byte *p = getPointer(op.params[1]);
+        ushort a = regAF.hi + *p;
+        setFlags(regAF.hi, *p, true, false);
+        regAF.hi = a & 0x00FF;
 
-    ushort a = regAF.hi + *val;
-    setFlags(regAF.hi, *val, true, false);
+    } else if (op.params[0] == SP) {
+        byte e = bus::read(regPC + 1);
+        setFlags(*((ushort *)&regSP), e, true, false);
+        *((ushort *)&regSP) += e;
+        set_flag(FlagZ, false);
+    } else {
+        ushort *p = (ushort *)getPointer(op.params[1]);
+        ushort *pHL = (ushort *)&regHL;
+        int n = *pHL + *p;
 
-    regAF.hi = a & 0x00FF;
+        set_flag(FlagC, n >= 0x10000);
+        set_flag(FlagN, false);
+        set_flag(FlagH, (n & 0xFFF) < (*pHL & 0xFFF));
+        *pHL = n & 0xFFFF;
+    }
+
     return 0;
 }
 
@@ -647,10 +682,13 @@ int handleINC(const OpCode &op) {
                 b++;
                 bus::write((*((ushort *)&regHL)), b);
                 val = b;
-                return 0;
+
+                cout << "SETTING VAL TO B: " << Byte(val) << " - " << (uint64_t)&val << endl;
+
             } else {
                 (*((ushort *)&regHL))++; 
                 val = (*((ushort *)&regHL)); 
+                return 0;
             }
         } break;
         default:
@@ -658,6 +696,8 @@ int handleINC(const OpCode &op) {
             exit(-1);
             return 0;
     }
+
+    cout << "VAL AGAIN: " << Byte(val) << " - " << (uint64_t)&val << endl;
 
     set_flag(FlagZ, val == 0);
     set_flag(FlagN, 0);
@@ -726,6 +766,13 @@ int handleRRA(const OpCode &op) {
     byte b = regAF.hi & 1;
     regAF.hi >>= 1;
     regAF.hi &= (b << 7);
+    return 0;
+}
+
+int handleCPL(const OpCode &op) {
+    regAF.hi = ~regAF.hi;
+    set_flag(FlagH, true);
+    set_flag(FlagN, true);
     return 0;
 }
 
@@ -808,10 +855,12 @@ void init_handlers() {
     handlerMap[RST] = handleRST;
     handlerMap[CALL] = handleCALL;
     handlerMap[RET] = handleRET;
+    handlerMap[RETI] = handleRETI;
     handlerMap[DAA] = handleDAA;
     handlerMap[PUSH] = handlePUSH;
     handlerMap[POP] = handlePOP;
     handlerMap[CB] = handleCB;
+    handlerMap[CPL] = handleCPL;
 
     initParamTypeMap();
 }
