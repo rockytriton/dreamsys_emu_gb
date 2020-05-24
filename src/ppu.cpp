@@ -14,6 +14,8 @@ SDL_Renderer *sdlRenderer;
 SDL_Texture *sdlTexture;
 static SDL_Surface *screen;
 
+byte lcdControl;
+
 ScrollInfo scrollInfo;
 int currentFrame = 0;
 byte currentLine = 0;
@@ -24,6 +26,15 @@ struct OAMEntry {
     byte tile;
     byte flags;
 };
+
+inline bool bgDisplay() { return getBit(lcdControl, 0); }
+inline bool spriteDisplay() { return getBit(lcdControl, 1); }
+inline bool spriteSize8x16() { return getBit(lcdControl, 2); }
+inline ushort bgMapStart() { return getBit(lcdControl, 3) ? 0x9C00 : 0x9800; }
+inline ushort bgTileStart() { return getBit(lcdControl, 4) ? 0x8000 : 0x8800; }
+inline bool windowDisplay() { return getBit(lcdControl, 5); }
+inline ushort windowMapSelect() { return getBit(lcdControl, 6) ? 0x9C00 : 0x9800; }
+inline bool lcdOn() { return getBit(lcdControl, 7); }
 
 /*
 OAM Entry:
@@ -89,12 +100,54 @@ void drawFrame() {
 	}
 	}
 
-    OAMEntry *entry = (OAMEntry *)&oamRAM;
+    //OAMEntry *entry = (OAMEntry *)&oamRAM;
 
-    cout << endl << "FIRST SPRITE " << Byte(entry->x) << "," << Byte(entry->y) << " TILE: " << Byte(entry->tile) << endl << endl;
+    cout  << endl << "LCD Status: " << endl
+         << "\tbgDisplay: " << Byte(bgDisplay()) << endl
+         << "\tspriteDisplay: " << Byte(spriteDisplay()) << endl
+         << "\tspriteSize8x16: " << Byte(spriteSize8x16()) << endl
+         << "\tbgMapStart: " << Short(bgMapStart()) << endl
+         << "\tbgTileStart: " << Short(bgTileStart()) << endl
+         << "\twindowDisplay: " << Byte(windowDisplay()) << endl
+         << "\twindowMapSelect: " << Short(windowMapSelect()) << endl
+         << "\tlcdOn: " << Byte(lcdOn()) << endl << endl;
 
-    entry = (OAMEntry *)&oamRAM[4];
-    cout << endl << "SECOND SPRITE " << Byte(entry->x) << "," << Byte(entry->y) << " TILE: " << Byte(entry->tile) << endl << endl;
+    SDL_Rect rc;
+    rc.x = 10;
+    rc.y = 10;
+    rc.w = 5;
+    rc.h = 5;
+
+    SDL_FillRect(screen, &rc, 0xFF00FFFF);
+
+    int drawX = 0;
+    int drawY = 0;
+    int scale = 5;
+
+    for (int x=0; x<32; x++) {
+        byte tileNum = (x) + bgMapStart();
+        byte tileStart = bgTileStart() + (tileNum * 16);
+
+        for (int i=0; i<16; i += 2) {
+            byte b1 = memory::read(tileStart + i);
+            byte b2 = memory::read(tileStart + i + 1);
+
+            for (int bit=7; bit>=0; bit--) {
+                byte color = ((b1 & (1 << bit)) >> (bit-1)) | ((b2 & (1 << bit)) >> bit);
+                rc.x = drawX + (7 - bit);
+                rc.y = drawY;
+                rc.w = scale;
+                rc.h = scale;
+
+                SDL_FillRect(screen, &rc, colours[color]);
+            }
+
+            drawY += scale;
+        }
+
+        drawX += (8 * scale);
+        drawY = 0;
+    }
 
 	SDL_UpdateTexture(sdlTexture, NULL, screen->pixels, screen->pitch);
 	SDL_RenderClear(sdlRenderer);

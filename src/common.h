@@ -17,6 +17,10 @@ using std::endl;
 typedef uint8_t byte; 
 typedef uint16_t ushort;
 
+inline bool getBit(byte b, byte n) {
+    return b & (1 << n);
+}
+
 ushort toShort(byte a, byte b);
 
 struct Byte {

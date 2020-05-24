@@ -37,11 +37,9 @@ void writeLCDStats(byte b) {
     lcdStats = b;
 }
 
-byte lcdControl = 0;
-
 byte readLCDControl() {
     cout << "READING LCD STATS: " << endl;
-    return lcdControl;
+    return ppu::lcdControl;
 }
 
 void writeLCDControl(byte b) {
@@ -49,7 +47,7 @@ void writeLCDControl(byte b) {
 
     sleepMs(100);
 
-    lcdControl = b;
+    ppu::lcdControl = b;
 }
 
 void writeDMA(byte b) {
