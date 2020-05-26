@@ -12,6 +12,7 @@ namespace cpu {
 //const ushort IV_VBLANK = 0x40;
 
 extern bool interruptsEnabled;
+bool haltWaitingForInterrupt = false;
 
 void init_handlers();
 int handle_op(OpCode &opCode);
@@ -97,28 +98,37 @@ void tick() {
         //DEBUG = true;
     }
 
-    byte b = bus::read(regPC);
+    if (!haltWaitingForInterrupt) {
+        byte b = bus::read(regPC);
 
-    OpCode opCode = opCodes[b];
-    n++;
+        OpCode opCode = opCodes[b];
+        n++;
 
-    if (DEBUG) cout << Int64(n) << ": " << Short(regPC) << ": " << Byte(b) << " " << Byte(bus::read(regPC + 1)) << " " << Byte(bus::read(regPC + 2)) << " (" << opCode.name << ") "
-            << " - AF: " << Short(toShort(regAF.lo, regAF.hi))
-            << " - BC: " << Short(toShort(regBC.lo, regBC.hi))
-            << " - DE: " << Short(toShort(regDE.lo, regDE.hi))
-            << " - HL: " << Short(toShort(regHL.lo, regHL.hi))
-            << " - Cycles: " << (totalTicks - 1)
-            << endl;
+        if (DEBUG) cout << Int64(n) << ": " << Short(regPC) << ": " << Byte(b) << " " << Byte(bus::read(regPC + 1)) << " " << Byte(bus::read(regPC + 2)) << " (" << opCode.name << ") "
+                << " - AF: " << Short(toShort(regAF.lo, regAF.hi))
+                << " - BC: " << Short(toShort(regBC.lo, regBC.hi))
+                << " - DE: " << Short(toShort(regDE.lo, regDE.hi))
+                << " - HL: " << Short(toShort(regHL.lo, regHL.hi))
+                << " - Cycles: " << (totalTicks - 1)
+                << endl;
 
-    int n = handle_op(opCode);
+        int n = handle_op(opCode);
 
-    if (opCode.value == 0xff) {
-        sleep(5);
+        if (opCode.value == 0xff) {
+            sleep(5);
+        }
+
+        regPC += opCode.length;
+
+        remainingTicks = ((n + opCode.cycles) / 4) - 1;
+
+        if (extraCycles) {
+            remainingTicks += extraCycles;
+            extraCycles = 0;
+        }
     }
 
-    regPC += opCode.length;
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(cpuSpeed));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(cpuSpeed));
 
     if (interruptsEnabled && bus::read(0xFF0F)) {
         //cout << endl << "Interrupt ready to handle: " << Byte(bus::read(0xFF0F)) << endl;
@@ -130,13 +140,6 @@ void tick() {
     if (interruptsEnabled && vbEnabled && vbRequested) {
         //cout << endl << "VBLANK Interrupt ready to handle: " << Byte(bus::read(0xFF0F)) << endl;
         //std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-    }
-
-    remainingTicks = ((n + opCode.cycles) / 4) - 1;
-
-    if (extraCycles) {
-        remainingTicks += extraCycles;
-        extraCycles = 0;
     }
 }
 
@@ -151,7 +154,7 @@ void handleInterrupt(byte flag, bool request, bool pcp1) {
         }
 
         if (request && interruptsEnabled && (intEnableFlag & 1)) {
-            cout << "CPU:> HANDLING VBLANK" << endl;
+            //cout << "CPU:> HANDLING VBLANK" << endl;
             intRequestFlag &= ~1;
             //cout << "Disabling VBlank: " << Byte(intRequestFlag) << endl;
 
@@ -161,6 +164,11 @@ void handleInterrupt(byte flag, bool request, bool pcp1) {
                 push(regPC);
             }
 
+            if (haltWaitingForInterrupt) {
+                cout << "RESUMING" << endl;
+            }
+
+            haltWaitingForInterrupt = false;
             regPC = 0x40;
             //changePC(0x40);
             //cpuSpeed = 500;
@@ -183,12 +191,12 @@ byte getInterruptsRequestsFlag() {
 
 void setInterruptsEnableFlag(byte f) {
     intEnableFlag = f;
-    cout << endl << "WRITING INT ENABLE FLAG: " << Byte(f) << " - " << Byte(intRequestFlag) << endl << endl;
+    //cout << endl << "WRITING INT ENABLE FLAG: " << Byte(f) << " - " << Byte(intRequestFlag) << endl << endl;
 }
 
 void setInterruptsRequestsFlag(byte f) {
     intRequestFlag = f;
-    cout << endl << "WRITING INT REQUEST FLAG: " << Byte(f) << " - " << Byte(intRequestFlag) << endl << endl;
+    //cout << endl << "WRITING INT REQUEST FLAG: " << Byte(f) << " - " << Byte(intRequestFlag) << endl << endl;
 }
 
 

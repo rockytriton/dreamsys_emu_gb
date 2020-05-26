@@ -144,6 +144,7 @@ extern Register regSP;
 extern OpCode opCodes[];
 
 extern int extraCycles;
+extern bool haltWaitingForInterrupt;
 
 inline bool get_flag(Flags n) {
     return (regAF.lo & (1 << n)) ? 1 : 0;

@@ -1,6 +1,7 @@
 #include "ppu.h"
 #include "cpu.h"
 #include "memory.h"
+#include "io.h"
 
 #include <chrono>
 #include <thread>
@@ -70,39 +71,17 @@ void init() {
                                                 640, 480);
 }
 
-static unsigned long colours[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
+static unsigned long colours[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x444444};
 
 void drawFrame() {
     
 	int y, tx, ty;
 	unsigned int *b = (unsigned int *)screen->pixels;
 
-	for(ty = 0; ty < 24; ty++)
-	{
-	for(tx = 0; tx < 16; tx++)
-	{
-	for(y = 0; y<8; y++)
-	{
-		unsigned char b1, b2;
-		int tileaddr = 0x8000 +  ty*0x100 + tx*16 + y*2;
-
-		b1 = memory::read(tileaddr);
-		b2 = memory::read(tileaddr+1);
-		b[(ty*640*8)+(tx*8) + (y*640) + 0 + 0x1F4F0] = colours[(!!(b1&0x80))<<1 | !!(b2&0x80)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 1 + 0x1F4F0] = colours[(!!(b1&0x40))<<1 | !!(b2&0x40)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 2 + 0x1F4F0] = colours[(!!(b1&0x20))<<1 | !!(b2&0x20)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 3 + 0x1F4F0] = colours[(!!(b1&0x10))<<1 | !!(b2&0x10)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 4 + 0x1F4F0] = colours[(!!(b1&0x8))<<1 | !!(b2&0x8)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 5 + 0x1F4F0] = colours[(!!(b1&0x4))<<1 | !!(b2&0x4)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 6 + 0x1F4F0] = colours[(!!(b1&0x2))<<1 | !!(b2&0x2)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 7 + 0x1F4F0] = colours[(!!(b1&0x1))<<1 | !!(b2&0x1)];
-	}
-	}
-	}
 
     //OAMEntry *entry = (OAMEntry *)&oamRAM;
 
-    cout  << endl << "LCD Status: " << endl
+    if (DEBUG) cout  << endl << "LCD Status: " << endl
          << "\tbgDisplay: " << Byte(bgDisplay()) << endl
          << "\tspriteDisplay: " << Byte(spriteDisplay()) << endl
          << "\tspriteSize8x16: " << Byte(spriteSize8x16()) << endl
@@ -112,42 +91,8 @@ void drawFrame() {
          << "\twindowMapSelect: " << Short(windowMapSelect()) << endl
          << "\tlcdOn: " << Byte(lcdOn()) << endl << endl;
 
-    SDL_Rect rc;
-    rc.x = 10;
-    rc.y = 10;
-    rc.w = 5;
-    rc.h = 5;
+    //if (!DEBUG) return;
 
-    SDL_FillRect(screen, &rc, 0xFF00FFFF);
-
-    int drawX = 0;
-    int drawY = 0;
-    int scale = 5;
-
-    for (int x=0; x<32; x++) {
-        byte tileNum = (x) + bgMapStart();
-        byte tileStart = bgTileStart() + (tileNum * 16);
-
-        for (int i=0; i<16; i += 2) {
-            byte b1 = memory::read(tileStart + i);
-            byte b2 = memory::read(tileStart + i + 1);
-
-            for (int bit=7; bit>=0; bit--) {
-                byte color = ((b1 & (1 << bit)) >> (bit-1)) | ((b2 & (1 << bit)) >> bit);
-                rc.x = drawX + (7 - bit);
-                rc.y = drawY;
-                rc.w = scale;
-                rc.h = scale;
-
-                SDL_FillRect(screen, &rc, colours[color]);
-            }
-
-            drawY += scale;
-        }
-
-        drawX += (8 * scale);
-        drawY = 0;
-    }
 
 	SDL_UpdateTexture(sdlTexture, NULL, screen->pixels, screen->pitch);
 	SDL_RenderClear(sdlRenderer);
@@ -161,11 +106,11 @@ byte getCurrentLine() {
 byte readOAM(ushort address) {
 
 
-    cout << "READ DUMPING OAM RAM: " << Short(address) << " - " << Byte(memory::ram[address]) << " - " << endl;
+    //cout << "READ DUMPING OAM RAM: " << Short(address) << " - " << Byte(memory::ram[address]) << " - " << endl;
 
     for (int i=0; i<160; i++) {
         if ((i % 32) == 0) cout << endl;
-        cout << " " << Byte(oamRAM[i]);
+        //cout << " " << Byte(oamRAM[i]);
     }
 
     cout << endl;
@@ -206,17 +151,43 @@ void tick() {
         drawFrame();
         cout << endl << "PPU:> NEW FRAME: " << currentFrame << endl << endl;
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        //std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
         cpu::handleInterrupt(cpu::IVBlank, true, false);
     }
 
     currentLine = l;
 
+    //if (!DEBUG) return;
+
     SDL_Event e;
     if (SDL_PollEvent(&e) > 0)
     {
         SDL_UpdateWindowSurface(sdlWindow);
+
+        if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_RETURN) {
+            cout << "KEYDOWN" << endl;
+            io::startDown = true;
+            //sleepMs(1000);
+        }
+
+        if (e.type == SDL_KEYUP && e.key.keysym.sym == SDLK_RETURN) {
+            cout << "KEYUP" << endl;
+            io::startDown = false;
+            //sleepMs(1000);
+        }
+
+        if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_a) {
+            cout << "KEYDOWN a" << endl;
+            io::aDown = true;
+            //sleepMs(1000);
+        }
+
+        if (e.type == SDL_KEYUP && e.key.keysym.sym == SDLK_a) {
+            cout << "KEYUP a" << endl;
+            io::aDown = false;
+            //sleepMs(1000);
+        }
 
         if (e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_CLOSE) {
             exit(0);
@@ -226,3 +197,64 @@ void tick() {
 
 }
 
+
+
+/*
+
+
+
+
+    SDL_Rect rc;
+    rc.x = 10;
+    rc.y = 10;
+    rc.w = 5;
+    rc.h = 5;
+
+    SDL_FillRect(screen, &rc, 0xFF00FFFF);
+
+    int drawX = 0;
+    int drawY = 0;
+    int scale = 1;
+
+    //cout << "READING TILES: ";
+
+    for (int y=0; y<32; y++) {
+    for (int x=0; x<32; x++) {
+        byte tileNum = memory::read((x + (y *32)) + bgMapStart());
+        //tileNum = 1;
+        ushort tileStart = bgTileStart() + (tileNum * 16);
+        //cout << Byte(tileNum) << "-";
+
+        drawY = (y * 8 * scale);
+
+        for (int i=0; i<16; i += 2) {
+		    //int tileaddr = 0x8000 +  0*0x100 + tileNum*16 + i;
+            byte b1 = memory::read(tileStart + i);
+            byte b2 = memory::read(tileStart + i + 1);
+            //byte b1 = memory::read(tileaddr);
+            //byte b2 = memory::read(tileaddr +1);
+
+            for (int bit=7; bit>=0; bit--) {
+                byte hiBit = (!!(b1 & (1 << bit)) << 1);
+                byte loBit = (!!(b2 & (1 << bit)));
+
+                byte color = hiBit | loBit;
+                rc.x = drawX + ((7 - bit) * scale);
+                rc.y = drawY;
+                rc.w = scale;
+                rc.h = scale;
+
+                SDL_FillRect(screen, &rc, colours[color]);
+            }
+
+            drawY += scale;
+        }
+        
+
+        drawX += (8 * scale);
+    }
+    drawX = 0;
+    }
+
+    cout << endl;
+*/

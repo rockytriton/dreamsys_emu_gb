@@ -102,7 +102,7 @@ byte *getPointer(ParamType pt, bool hlAsRam = true) {
         case N: return &memory::ram[regPC + 1]; 
         case HL: {
             if (toShort(regHL.hi, regHL.lo) >= 0x8000 && toShort(regHL.hi, regHL.lo) < 0xA000) {
-                cout << "HL ACCESSING VRAM: " << Short(toShort(regHL.hi, regHL.lo)) << endl;
+                //cout << "HL ACCESSING VRAM: " << Short(toShort(regHL.hi, regHL.lo)) << endl;
             }
             return hlAsRam ? &memory::ram[toShort(regHL.hi, regHL.lo)] : &regHL.lo;
         }
@@ -674,7 +674,7 @@ int handleINC(const OpCode &op) {
         case E: regDE.lo++; val = regDE.lo; break;
         case H: regHL.hi++; val = regHL.hi; break;
         case L: regHL.lo++; val = regHL.lo; break;
-        case BC: (*((ushort *)&regBC))++; val = (*((ushort *)&regBC)); cout << "SET BC TO " << Short(val) << endl; return 0;
+        case BC: (*((ushort *)&regBC))++; val = (*((ushort *)&regBC));  return 0;
         case DE: (*((ushort *)&regDE))++; val = (*((ushort *)&regDE)); return 0;
         case HL: {
             if (op.mode == ATypeA) {
@@ -683,7 +683,7 @@ int handleINC(const OpCode &op) {
                 bus::write((*((ushort *)&regHL)), b);
                 val = b;
 
-                cout << "SETTING VAL TO B: " << Byte(val) << " - " << (uint64_t)&val << endl;
+                //cout << "SETTING VAL TO B: " << Byte(val) << " - " << (uint64_t)&val << endl;
 
             } else {
                 (*((ushort *)&regHL))++; 
@@ -697,7 +697,7 @@ int handleINC(const OpCode &op) {
             return 0;
     }
 
-    cout << "VAL AGAIN: " << Byte(val) << " - " << (uint64_t)&val << endl;
+    //cout << "VAL AGAIN: " << Byte(val) << " - " << (uint64_t)&val << endl;
 
     set_flag(FlagZ, val == 0);
     set_flag(FlagN, 0);
@@ -827,6 +827,12 @@ int handleRST(const OpCode &op) {
     return 0;
 }
 
+int handleHALT(const OpCode &opCode) {
+    haltWaitingForInterrupt = true;
+    cout << "HALTING..." << endl;
+    return 0;
+}
+
 void init_handlers() {
     handlerMap[LD] = handleLD;
     handlerMap[LDI] = handleLDI;
@@ -861,6 +867,7 @@ void init_handlers() {
     handlerMap[POP] = handlePOP;
     handlerMap[CB] = handleCB;
     handlerMap[CPL] = handleCPL;
+    handlerMap[HALT] = handleHALT;
 
     initParamTypeMap();
 }

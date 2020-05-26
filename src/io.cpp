@@ -28,7 +28,7 @@ void writeScrollX(byte b) {
 byte lcdStats = 0;
 
 byte readLCDStats() {
-    cout << "READING LCD STATS: " << endl;
+    //cout << "READING LCD STATS: " << endl;
     return lcdStats;
 }
 
@@ -38,12 +38,12 @@ void writeLCDStats(byte b) {
 }
 
 byte readLCDControl() {
-    cout << "READING LCD STATS: " << endl;
+    //cout << "READING LCD STATS: " << endl;
     return ppu::lcdControl;
 }
 
 void writeLCDControl(byte b) {
-    cout << "WRITING LCD CONTROL: " << Byte(b) << endl;
+    //cout << "WRITING LCD CONTROL: " << Byte(b) << endl;
 
     sleepMs(100);
 
@@ -51,13 +51,13 @@ void writeLCDControl(byte b) {
 }
 
 void writeDMA(byte b) {
-    cout << endl << "DOING DMA WRITE: " << Byte(b) << endl << endl;
+    //cout << endl << "DOING DMA WRITE: " << Byte(b) << endl << endl;
 
     for (int i=0; i<0xA0; i++) {
         byte d = bus::read((b * 0x100) + i);
         bus::write(0xFE00 + i, d);
     }
-
+/*
     cout << "VRAM: " << endl;
 
     for (int i=0x8000; i<0x80FF; i++) {
@@ -69,12 +69,12 @@ void writeDMA(byte b) {
     }
 
     cout << endl;
-
+*/
     cpu::extraCycles = 0;
 }
 
 byte readDMS() {
-    cout << endl << "DOING DMA READ" << endl << endl;
+    //cout << endl << "DOING DMA READ" << endl << endl;
     return 0;
 }
 
@@ -95,6 +95,8 @@ void init() {
     ADD_MEMORY_HANDLER(0xFF49);
 }
 
+bool startDown = false;
+bool aDown = false;
 
 byte read(ushort address) {
 
@@ -105,10 +107,23 @@ byte read(ushort address) {
     }
 
     if (address == 0xFF00) {
-        cout << endl << "JOYPAD READ: " << Byte(memory::read(address)) << endl;
-        cout << "READ: " << Byte(0xC0 | (0xF^0) | memory::read(address)) << endl;
+        //cout << endl << "JOYPAD READ: " << Byte(memory::read(address)) << endl;
+
+        byte moreBit = 0;
+
+        if (memory::read(address) & (1 << 5) && startDown) {
+            moreBit = (1 << 3);
+            //cout << "SAYING START DOWN" << endl;
+        }
+
+
+        if (memory::read(address) & (1 << 5) && aDown) {
+            moreBit |= 1;
+        }
+
+        //cout << "READ: " << Byte(0xC0 | (0xF^0) | memory::read(address) | moreBit) << endl;
         //sleep(2);
-        return 0xC0 | (0xF^0) | memory::read(address);
+        return 0xC0 | (0xF^0) | memory::read(address) | moreBit;
     } else if (address == 0xFF01) {
         //cout << endl << "SERIAL READ: " << endl;
         //sleep(2);
@@ -153,7 +168,7 @@ void write(ushort address, byte b) {
     //sleep(1);
 
     if (address == 0xFF00) {
-        cout << endl << "JOYPAD WRITE: " << Byte(b) << endl;
+        //cout << endl << "JOYPAD WRITE: " << Byte(b) << endl;
         memory::write(address, b);
        // sleep(2);
         return;
