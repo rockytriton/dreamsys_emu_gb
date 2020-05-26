@@ -144,7 +144,11 @@ void handleInterrupt(byte flag, bool request, bool pcp1) {
     if (flag & 1) {
         if (request) vbEnabled = true; else vbRequested = true;
 
-        cout << "V-Blank " << (request ? "requested" : "enabled") << endl;
+        //cout << "V-Blank " << (request ? "requested" : "enabled") << endl;
+
+        if (request) {
+            intRequestFlag = flag;
+        }
 
         if (request && interruptsEnabled && (intEnableFlag & 1)) {
             cout << "CPU:> HANDLING VBLANK" << endl;
@@ -161,7 +165,7 @@ void handleInterrupt(byte flag, bool request, bool pcp1) {
             //changePC(0x40);
             //cpuSpeed = 500;
         } else {
-            cout << "DENIED" << endl;
+           // cout << "DENIED" << endl;
         }
     } else {
         cout << "OK ANOTHER INTERRUPT..." << endl;
