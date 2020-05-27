@@ -22,8 +22,8 @@ int currentFrame = 0;
 byte currentLine = 0;
 
 struct OAMEntry {
-    byte x;
     byte y;
+    byte x;
     byte tile;
     byte flags;
 };
@@ -58,9 +58,9 @@ void init() {
     SDL_Init(SDL_INIT_VIDEO);
 
 
-    SDL_CreateWindowAndRenderer(640, 480, SDL_WINDOW_RESIZABLE, &sdlWindow, &sdlRenderer);
+    SDL_CreateWindowAndRenderer(1024, 768, SDL_WINDOW_RESIZABLE, &sdlWindow, &sdlRenderer);
 
-    screen = SDL_CreateRGBSurface(0, 640, 480, 32,
+    screen = SDL_CreateRGBSurface(0, 1024, 768, 32,
                                             0x00FF0000,
                                             0x0000FF00,
                                             0x000000FF,
@@ -68,18 +68,26 @@ void init() {
     sdlTexture = SDL_CreateTexture(sdlRenderer,
                                                 SDL_PIXELFORMAT_ARGB8888,
                                                 SDL_TEXTUREACCESS_STREAMING,
-                                                640, 480);
+                                                1024, 768);
 }
 
-static unsigned long colours[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x444444};
+static unsigned long colors[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
 
 void drawFrame() {
-    
-	int y, tx, ty;
-	unsigned int *b = (unsigned int *)screen->pixels;
 
+    cout << "SPRITES: " << endl;
+    for (int i=0; i<160; i += 4) {
+        OAMEntry *entry = (OAMEntry *)&oamRAM[i];
+        
+        cout << Byte(entry->x) << "," << Byte(entry->y) << "-" << Byte(entry->tile) << " ";
 
-    //OAMEntry *entry = (OAMEntry *)&oamRAM;
+        if ((i % 40) == 0) {
+            cout << endl;
+        }
+    }
+
+    cout << endl;
+
 
     if (DEBUG) cout  << endl << "LCD Status: " << endl
          << "\tbgDisplay: " << Byte(bgDisplay()) << endl
@@ -92,6 +100,77 @@ void drawFrame() {
          << "\tlcdOn: " << Byte(lcdOn()) << endl << endl;
 
     //if (!DEBUG) return;
+
+
+    int scale = 5;
+    int xDraw = 0;
+    int yDraw = 0;
+    SDL_Rect rc;
+
+    for (int y=0; y<32; y++) {
+        for (int x=0; x<32; x++) {
+
+            for (int tileY=0; tileY<16; tileY += 2) {
+                ushort tileNum = memory::read(bgMapStart() + x + (y * 32));
+                
+                byte b1 = memory::read(bgTileStart() + (tileNum * 16) + tileY);
+                byte b2 = memory::read(bgTileStart() + (tileNum * 16) + 1 + tileY);
+                
+                for (int bit=7, n=0; bit >= 0; bit--, n++) {
+                    byte hi = !!(b1 & (1 << bit)) << 1;
+                    byte lo = !!(b2 & (1 << bit));
+
+                    byte color = hi|lo;
+
+                    rc.x = xDraw + (x * scale) + (n * scale);
+                    rc.y = yDraw + (y * scale) + (tileY / 2 * scale);
+                    rc.w = scale;
+                    rc.h = scale;
+
+                    SDL_FillRect(screen, &rc, colors[color]);
+                }
+
+                //xDraw = 0;
+                //xDraw += (8 * scale);
+            }
+
+            xDraw += (7 * scale);
+        }
+
+        yDraw += (7 * scale);
+        xDraw = 0;
+    }
+
+    OAMEntry *entry = (OAMEntry *)&oamRAM;
+
+    yDraw = 0;
+    xDraw = 0;
+
+    if (entry->tile != 0) {
+        for (int tileY=0; tileY<16; tileY += 2) {
+            byte b1 = memory::read(bgTileStart() + (entry->tile * 16) + tileY);
+            byte b2 = memory::read(bgTileStart() + (entry->tile * 16) + 1 + tileY);
+            
+            for (int bit=7, n=0; bit >= 0; bit--, n++) {
+                byte hi = !!(b1 & (1 << bit)) << 1;
+                byte lo = !!(b2 & (1 << bit));
+
+                byte color = hi|lo;
+
+                rc.x = xDraw + (entry->x * scale) + (n * scale);
+                rc.y = yDraw + (entry->y * scale) + (tileY / 2 * scale);
+                rc.w = scale;
+                rc.h = scale;
+
+                SDL_FillRect(screen, &rc, colors[color]);
+            }
+
+            //xDraw = 0;
+            //xDraw += (8 * scale);
+        }
+
+    }
+
 
 
 	SDL_UpdateTexture(sdlTexture, NULL, screen->pixels, screen->pitch);
@@ -177,6 +256,18 @@ void tick() {
             //sleepMs(1000);
         }
 
+        if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_CAPSLOCK) {
+            cout << "KEYDOWN" << endl;
+            io::selectDown = true;
+            //sleepMs(1000);
+        }
+
+        if (e.type == SDL_KEYUP && e.key.keysym.sym == SDLK_CAPSLOCK) {
+            cout << "KEYUP" << endl;
+            io::selectDown = false;
+            //sleepMs(1000);
+        }
+
         if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_a) {
             cout << "KEYDOWN a" << endl;
             io::aDown = true;
@@ -186,6 +277,30 @@ void tick() {
         if (e.type == SDL_KEYUP && e.key.keysym.sym == SDLK_a) {
             cout << "KEYUP a" << endl;
             io::aDown = false;
+            //sleepMs(1000);
+        }
+
+        if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_LEFT) {
+            cout << "KEYDOWN Left" << endl;
+            io::leftDown = true;
+            //sleepMs(1000);
+        }
+
+        if (e.type == SDL_KEYUP && e.key.keysym.sym == SDLK_LEFT) {
+            cout << "KEYUP Left" << endl;
+            io::leftDown = false;
+            //sleepMs(1000);
+        }
+
+        if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_RIGHT) {
+            cout << "KEYDOWN rightDown" << endl;
+            io::rightDown = true;
+            //sleepMs(1000);
+        }
+
+        if (e.type == SDL_KEYUP && e.key.keysym.sym == SDLK_RIGHT) {
+            cout << "KEYUP rightDown" << endl;
+            io::rightDown = false;
             //sleepMs(1000);
         }
 

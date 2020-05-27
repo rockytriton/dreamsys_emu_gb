@@ -45,7 +45,7 @@ byte readLCDControl() {
 void writeLCDControl(byte b) {
     //cout << "WRITING LCD CONTROL: " << Byte(b) << endl;
 
-    sleepMs(100);
+    //sleepMs(100);
 
     ppu::lcdControl = b;
 }
@@ -97,6 +97,12 @@ void init() {
 
 bool startDown = false;
 bool aDown = false;
+bool selectDown = false;
+bool rightDown = false;
+bool leftDown = false;
+
+byte selButtons = 0;
+byte selDirs = 0;
 
 byte read(ushort address) {
 
@@ -111,19 +117,41 @@ byte read(ushort address) {
 
         byte moreBit = 0;
 
-        if (memory::read(address) & (1 << 5) && startDown) {
-            moreBit = (1 << 3);
+        if (!selButtons) {
+            moreBit = (startDown << 3) | (selectDown << 2) | (aDown << 0);
+        }
+
+        if (!selDirs) {
+            moreBit = (leftDown << 1) | (rightDown << 0);
+        }
+
+/*
+        if (!selButtons && startDown) {
+            moreBit |= (1 << 3);
+            //cout << "SAYING START DOWN" << endl;
+        }
+
+        if (!selButtons && selectDown) {
+            moreBit |= (1 << 2);
             //cout << "SAYING START DOWN" << endl;
         }
 
 
-        if (memory::read(address) & (1 << 5) && aDown) {
+        if (!selButtons && aDown) {
             moreBit |= 1;
         }
 
-        //cout << "READ: " << Byte(0xC0 | (0xF^0) | memory::read(address) | moreBit) << endl;
+        if (!selDirs && leftDown) {
+            moreBit |= (1 << 1);
+        }
+
+        if (!selDirs && rightDown) {
+            moreBit |= 1;
+        }
+*/
+        cout << "READ: " << Byte(0xC0 | (0xF^moreBit) | (selDirs | selButtons)) << endl;
         //sleep(2);
-        return 0xC0 | (0xF^0) | memory::read(address) | moreBit;
+        return 0xC0 | (0xF^moreBit) | (selDirs | selButtons);
     } else if (address == 0xFF01) {
         //cout << endl << "SERIAL READ: " << endl;
         //sleep(2);
@@ -169,7 +197,9 @@ void write(ushort address, byte b) {
 
     if (address == 0xFF00) {
         //cout << endl << "JOYPAD WRITE: " << Byte(b) << endl;
-        memory::write(address, b);
+        //memory::write(address, b & (0x10 | 0x20));
+        selButtons = b & 0x20;
+        selDirs = b & 0x10;
        // sleep(2);
         return;
     } else if (address == 0xFF01) {
@@ -197,7 +227,7 @@ void write(ushort address, byte b) {
     }
 
     if (DEBUG) cout << "UNKNOWN IO WRITE: " << Short(address) << endl;
-    //leep(5);
+    sleep(5);
 }
 
 }

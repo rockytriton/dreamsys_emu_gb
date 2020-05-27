@@ -193,6 +193,9 @@ int handleLD(const OpCode &op) {
     }
 
     if (dit == paramTypeMap.end()) {
+        dst = nullptr;
+        dstType = RegParamType::RPT16;
+
         if (op.params[0] == N) {
             //
             //exit(-1);
@@ -265,8 +268,8 @@ int handleLD(const OpCode &op) {
 }
 
 int handleNOP(const OpCode &op) {
-    cout << " NOP " << endl;
-    sleep(1);
+    //cout << " NOP " << endl;
+    //sleep(1);
     return 0;
 
 }

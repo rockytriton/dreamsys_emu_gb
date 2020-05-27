@@ -10,5 +10,8 @@ void write(ushort address, byte b);
 
 extern bool aDown ;
 extern bool startDown;
+extern bool selectDown;
 
+extern bool rightDown;
+extern bool leftDown;
 }
