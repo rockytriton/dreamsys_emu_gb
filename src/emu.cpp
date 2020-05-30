@@ -5,7 +5,7 @@
 #include "bus.h"
 #include "io.h"
 
-bool DEBUG = true;
+bool DEBUG = false;
 
 namespace dsemu {
 
@@ -15,8 +15,15 @@ void run() {
     ppu::init();
 
     while(true) {
+        if (cpu::paused) {
+            sleepMs(500);
+            continue;
+        }
+
         cpu::tick();
         ppu::tick();
+
+		
     }
 }
 

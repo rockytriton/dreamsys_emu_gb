@@ -2,13 +2,16 @@
 #include "memory.h"
 #include "cart.h"
 #include "emu.h"
+#include "ui.h"
 
 #include <cstring>
 #include <unistd.h>
 #include <iomanip>
+#include <thread>
 
 using namespace dsemu::cpu;
 using namespace dsemu::memory;
+using namespace dsemu;
 
 int main(int argc, char **argv) {
     cout << "Starting main.." << endl;
@@ -18,10 +21,18 @@ int main(int argc, char **argv) {
 
     dsemu::cart::load((const char *)argv[1]);
 
+    sleep(5);
+
     std::memcpy(ram, dsemu::cart::g_romData, 0x8000);
 
-    sleepMs(4000);
-    
+    ui::init();
+
+    std::thread t(dsemu::run);
+
+    while(true) {
+        ui::handleEvents();
+        ui::update();
+    }
 
 /*
     ram[0] = 0x01;
@@ -37,7 +48,7 @@ int main(int argc, char **argv) {
 */
     //cout << endl << "BEFORE RUN, C0DE = " << std::hex << std::setfill('0') << std::setw(2) << (int)ram[0xC0DE] << endl << endl;
 
-    dsemu::run();
+    
 
     //cout << endl << "AFTER RUN, C0DE  = " << std::hex << std::setfill('0') << std::setw(2) << (int)ram[0xC0DE] << endl << endl;
 

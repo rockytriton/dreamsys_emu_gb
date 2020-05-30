@@ -9,6 +9,8 @@
 
 namespace dsemu::bus {
 
+    byte bankNumber = 1;
+
     byte read(ushort address) {
         if (address < 0x8000) {
             return cart::read(address);
@@ -37,8 +39,17 @@ namespace dsemu::bus {
     }
 
     void write(ushort address, byte b) {
+
         if (address < 0x8000) {
             //cart::write(address, b);
+            if (cart::g_header.cartType == 1 && address >= 0x6000) {
+                cout << "Memory Model Select: " << Byte(b & 1) << endl;
+                sleep(1);
+            } else if (cart::g_header.cartType == 1 && address >= 0x2000 && address <= 0x3FFF) {
+                cout << "Rom Bank Select: " << Byte(b & 0x1F) << endl;
+                sleep(1);
+            }
+
         } else if (address < 0xA000) {
             //if (DEBUG) cout << "WRITING TO VIDEO RAM: " << Short(address) << endl;
             //sleep(2);

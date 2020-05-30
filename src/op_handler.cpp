@@ -233,13 +233,6 @@ int handleLD(const OpCode &op) {
 
             ushort addr = getAddrValue(op.params[0], dstValue);
             bus::write(addr, srcValue);
-
-            cout << "LD R TO A: " << Short(addr) << " = " << Byte(srcValue) << " - " << Short(dstValue) << " - " << Short(srcValue) << endl;
-
-            if (addr == 0xC01a || addr == 0x1ac0) {
-                cout << "LD TO ADDR: " << Short(addr) << " = " << Byte(srcValue) << endl;
-                
-            }
         }
             break;
         case ATypeAR: {
@@ -251,10 +244,6 @@ int handleLD(const OpCode &op) {
                 dst->hi = bus::read(addr); ;
             } else {
                 *((ushort *)dst) = bus::read(addr); ;
-            }
-
-            if (addr == 0xC01a || addr == 0x1ac0) {
-                cout << "LD FROM ADDR: " << Short(addr) << " = " << Byte(bus::read(addr)) << endl;
             }
             
             break;
@@ -270,6 +259,15 @@ int handleLD(const OpCode &op) {
                     *((ushort *)dst) = srcValue;
                 }
             } break;
+
+        case ATypeSP:
+        {
+            if (op.params[0] == HL) {
+                *((ushort *)&regHL) = *((ushort *)&regSP) + bus::read(regPC + 1);
+            } else {
+                *((ushort *)&regSP) = *((ushort *)&regHL);
+            }
+        } break;
 
         default:
             cout << "INVALID OP FLAG: " << dstValue << endl;
@@ -693,6 +691,7 @@ int handleINC(const OpCode &op) {
         case L: regHL.lo++; val = regHL.lo; break;
         case BC: (*((ushort *)&regBC))++; val = (*((ushort *)&regBC));  return 0;
         case DE: (*((ushort *)&regDE))++; val = (*((ushort *)&regDE)); return 0;
+        case SP: (*((ushort *)&regSP))++; val = (*((ushort *)&regSP)); return 0;
         case HL: {
             if (op.mode == ATypeA) {
                 byte b = bus::read((*((ushort *)&regHL)));
@@ -735,6 +734,7 @@ int handleDEC(const OpCode &op) {
         case L: regHL.lo--; val = regHL.lo; break;
         case BC: (*((ushort *)&regBC))--; val = (*((ushort *)&regBC)); return 0; //cout << "DECD BC" << endl; return;
         case DE: (*((ushort *)&regDE))--; val = (*((ushort *)&regDE)); return 0;
+        case SP: (*((ushort *)&regSP))--; val = (*((ushort *)&regSP)); return 0;
         case HL: {
             if (op.mode == ATypeA) {
                 byte b = bus::read((*((ushort *)&regHL)));
@@ -807,20 +807,25 @@ int handleRRCA(const OpCode &op) {
 
 int handleDI(const OpCode &op) {
     interruptsEnabled = false;
-    cout << "DISABLED INT" << endl;
+    //cout << "DISABLED INT" << endl;
     //sleep(3);
     return 0;
 }
 
 int handleEI(const OpCode &op) {
     eiCalled = true;
-    cout << "ENABLED INT" << endl;
+    //cout << "ENABLED INT" << endl;
     //sleep(3);
     return 0;
 }
 
 int handleSCF(const OpCode &op) {
     set_flag(FlagC, true);
+    return 0;
+}
+
+int handleCCF(const OpCode &op) {
+    set_flag(FlagC, false);
     return 0;
 }
 
@@ -891,6 +896,8 @@ void init_handlers() {
     handlerMap[CPL] = handleCPL;
     handlerMap[HALT] = handleHALT;
     handlerMap[SCF] = handleSCF;
+    handlerMap[CCF] = handleCCF;
+    handlerMap[STOP] = handleNOP;
 
     initParamTypeMap();
 }

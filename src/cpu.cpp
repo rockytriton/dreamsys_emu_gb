@@ -30,6 +30,7 @@ bool vbRequested = false;
 bool vbEnabled = false;
 byte intEnableFlag = 0;
 byte intRequestFlag = 0;
+bool paused = false;
 
 uint64_t totalTicks = 0;
 
@@ -128,7 +129,7 @@ void tick() {
         }
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(cpuSpeed));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(cpuSpeed));
 
     if (interruptsEnabled && bus::read(0xFF0F)) {
         //cout << endl << "Interrupt ready to handle: " << Byte(bus::read(0xFF0F)) << endl;
@@ -196,10 +197,30 @@ void handleInterrupt(byte flag, bool request, bool pcp1) {
             regPC = 0x48;
             interruptsEnabled = false;
         }
+    }else if (flag & 4) {
+        intRequestFlag |= flag;
+
+        if (request && interruptsEnabled && (intEnableFlag & 4)) {
+            intRequestFlag &= ~4;
+
+            if (pcp1) {
+                push((ushort)(regPC + 1));
+            } else {
+                push(regPC);
+            }
+
+            if (haltWaitingForInterrupt) {
+                cout << "RESUMING" << endl;
+            }
+
+            haltWaitingForInterrupt = false;
+            regPC = 0x50;
+            interruptsEnabled = false;
+        }
     }
     
     else {
-        cout << "OK ANOTHER INTERRUPT..." << endl;
+        cout << "OK ANOTHER INTERRUPT: " << Byte(flag) << endl;
         sleep(10);
     }
 }

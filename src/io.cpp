@@ -99,6 +99,8 @@ bool aDown = false;
 bool selectDown = false;
 bool rightDown = false;
 bool leftDown = false;
+bool upDown = false;
+bool downDown = false;
 
 byte selButtons = 0;
 byte selDirs = 0;
@@ -113,15 +115,32 @@ byte read(ushort address) {
 
     if (address == 0xFF00) {
         //cout << endl << "JOYPAD READ: " << Byte(memory::read(address)) << endl;
+        byte output = 0xCF;
 
-        byte moreBit = 0;
 
         if (!selButtons) {
-            moreBit = (startDown << 3) | (selectDown << 2) | (aDown << 0);
+            if (startDown) {
+                output &= ~(1 << 3);
+            } else if (selectDown) {
+                output &= ~(1 << 2);
+            } else if (aDown) {
+                output &= ~(1 << 0);
+            }
+
+            ///output = (startDown << 3) | (selectDown << 2) | (aDown << 0);
         }
 
         if (!selDirs) {
-            moreBit = (leftDown << 1) | (rightDown << 0);
+            if (leftDown) {
+                output &= ~(1 << 1);
+            } else if (rightDown) {
+                output &= ~(1 << 0);
+            } else if (upDown) {
+                output &= ~(1 << 2);
+            } else if (downDown) {
+                output &= ~(1 << 3);
+            }
+            //moreBit = (leftDown << 1) | (rightDown << 0) | (upDown << 2) | (downDown << 3);
         }
 
 /*
@@ -148,9 +167,9 @@ byte read(ushort address) {
             moreBit |= 1;
         }
 */
-        cout << "READ: " << Byte(0xC0 | (0xF^moreBit) | (selDirs | selButtons)) << endl;
+        cout << "READ: " << Byte(output) << endl;//Byte(0xC0 | (0xF^moreBit) | (selDirs | selButtons)) << endl;
         //sleep(2);
-        return 0xC0 | (0xF^moreBit) | (selDirs | selButtons);
+        return output; //0xC0 | (0xF^moreBit) | (selDirs | selButtons);
     } else if (address == 0xFF01) {
         //cout << endl << "SERIAL READ: " << endl;
         //sleep(2);

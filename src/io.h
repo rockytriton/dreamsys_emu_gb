@@ -14,4 +14,6 @@ extern bool selectDown;
 
 extern bool rightDown;
 extern bool leftDown;
+extern bool upDown;
+extern bool downDown;
 }

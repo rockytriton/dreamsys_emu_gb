@@ -268,7 +268,7 @@ OpCode opCodes[] = {
     {0xF6, "OR n", OR, 2, 8, ATypeNA, {N}},
     {0xF7, "RST 0x30", RST, 1, 16, ATypeNA, {x30}},
     {0xF8, "LD HL,SP+e", LD, 2, 12, ATypeSP, {HL, E}},
-    {0xF9, "LD SP,HL", LD, 1, 8, ATypeNA, {SP, HL}},
+    {0xF9, "LD SP,HL", LD, 1, 8, ATypeSP, {SP, HL}},
     {0xFA, "LD A,(nn)", LD, 3, 16, ATypeAR, {A, NN}},
     {0xFB, "EI", EI, 1, 4},
     {0xFC, "", X, 1},

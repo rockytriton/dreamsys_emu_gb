@@ -158,6 +158,8 @@ inline void set_flag(Flags n, bool val) {
     }
 }
 
+extern bool paused;
+
 void run();
 void handleInterrupt(byte flag, bool request, bool pcp1 = true);
 void tick();
