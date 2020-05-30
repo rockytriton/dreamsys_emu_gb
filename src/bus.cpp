@@ -42,12 +42,22 @@ namespace dsemu::bus {
         } else if (address < 0xA000) {
             //if (DEBUG) cout << "WRITING TO VIDEO RAM: " << Short(address) << endl;
             //sleep(2);
+	
             memory::write(address, b);
         } 
         else if (address < 0xFE00) {
 
+            if (address == 0xc01a) {
+                //cout << "BUS WRITINT TO C01A = " << Byte(b) << endl;
+                //sleepMs(2000);
+            }
+
             memory::write(address, b);
 
+            if (address == 0xc01a) {
+                //cout << "WROTE TO C01A = " << Byte(memory::read(address)) << endl;
+                //sleepMs(2000);
+            }
 
             //sleep(1);
 

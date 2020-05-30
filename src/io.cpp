@@ -25,16 +25,14 @@ void writeScrollX(byte b) {
     ppu::setXScroll(b);
 }
 
-byte lcdStats = 0;
-
 byte readLCDStats() {
     //cout << "READING LCD STATS: " << endl;
-    return lcdStats;
+    return ppu::lcdStats;
 }
 
 void writeLCDStats(byte b) {
     //cout << "WRITING LCD STATS: " << Byte(b) << endl;
-    lcdStats = b;
+    ppu::lcdStats = b;
 }
 
 byte readLCDControl() {
@@ -90,6 +88,7 @@ void init() {
     handlerMap[0xFF44] = std::make_pair(ppu::getCurrentLine, noWrite);
     handlerMap[0xFF46] = std::make_pair(readDMS, writeDMA);
 
+    ADD_MEMORY_HANDLER(0xFF45);
     ADD_MEMORY_HANDLER(0xFF47);
     ADD_MEMORY_HANDLER(0xFF48);
     ADD_MEMORY_HANDLER(0xFF49);
@@ -227,7 +226,7 @@ void write(ushort address, byte b) {
     }
 
     if (DEBUG) cout << "UNKNOWN IO WRITE: " << Short(address) << endl;
-    sleep(5);
+    //sleep(5);
 }
 
 }

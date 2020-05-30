@@ -93,7 +93,7 @@ void tick() {
         return;
     }
 
-    if (n > 0xEF90) {
+    if (n > 0xCAB0) {
         //cpuSpeed = 500;
         //DEBUG = true;
     }
@@ -128,7 +128,7 @@ void tick() {
         }
     }
 
-    //std::this_thread::sleep_for(std::chrono::milliseconds(cpuSpeed));
+    std::this_thread::sleep_for(std::chrono::milliseconds(cpuSpeed));
 
     if (interruptsEnabled && bus::read(0xFF0F)) {
         //cout << endl << "Interrupt ready to handle: " << Byte(bus::read(0xFF0F)) << endl;
@@ -170,12 +170,35 @@ void handleInterrupt(byte flag, bool request, bool pcp1) {
 
             haltWaitingForInterrupt = false;
             regPC = 0x40;
+            interruptsEnabled = false;
             //changePC(0x40);
             //cpuSpeed = 500;
         } else {
            // cout << "DENIED" << endl;
         }
-    } else {
+    } else if (flag & 2) {
+        intRequestFlag |= flag;
+
+        if (request && interruptsEnabled && (intEnableFlag & 2)) {
+            intRequestFlag &= ~2;
+
+            if (pcp1) {
+                push((ushort)(regPC + 1));
+            } else {
+                push(regPC);
+            }
+
+            if (haltWaitingForInterrupt) {
+                cout << "RESUMING" << endl;
+            }
+
+            haltWaitingForInterrupt = false;
+            regPC = 0x48;
+            interruptsEnabled = false;
+        }
+    }
+    
+    else {
         cout << "OK ANOTHER INTERRUPT..." << endl;
         sleep(10);
     }

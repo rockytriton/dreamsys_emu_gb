@@ -10,6 +10,9 @@
 
 namespace dsemu::ppu {
 
+const int SCREEN_WIDTH = 640;
+const int SCREEN_HEIGHT = 480;
+
 SDL_Window *sdlWindow;
 SDL_Renderer *sdlRenderer;
 SDL_Texture *sdlTexture;
@@ -17,9 +20,12 @@ static SDL_Surface *screen;
 
 byte lcdControl;
 
+byte lcdStats = 0;
+
 ScrollInfo scrollInfo;
 int currentFrame = 0;
 byte currentLine = 0;
+bool paused = false;
 
 struct OAMEntry {
     byte y;
@@ -58,9 +64,9 @@ void init() {
     SDL_Init(SDL_INIT_VIDEO);
 
 
-    SDL_CreateWindowAndRenderer(1024, 768, SDL_WINDOW_RESIZABLE, &sdlWindow, &sdlRenderer);
+    SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_RESIZABLE, &sdlWindow, &sdlRenderer);
 
-    screen = SDL_CreateRGBSurface(0, 1024, 768, 32,
+    screen = SDL_CreateRGBSurface(0, SCREEN_WIDTH, SCREEN_HEIGHT, 32,
                                             0x00FF0000,
                                             0x0000FF00,
                                             0x000000FF,
@@ -68,7 +74,7 @@ void init() {
     sdlTexture = SDL_CreateTexture(sdlRenderer,
                                                 SDL_PIXELFORMAT_ARGB8888,
                                                 SDL_TEXTUREACCESS_STREAMING,
-                                                1024, 768);
+                                                SCREEN_WIDTH, SCREEN_HEIGHT);
 }
 
 static unsigned long colors[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
@@ -89,7 +95,7 @@ void drawFrame() {
     cout << endl;
 
 
-    if (DEBUG) cout  << endl << "LCD Status: " << endl
+    cout  << endl << "LCD Status: " << endl
          << "\tbgDisplay: " << Byte(bgDisplay()) << endl
          << "\tspriteDisplay: " << Byte(spriteDisplay()) << endl
          << "\tspriteSize8x16: " << Byte(spriteSize8x16()) << endl
@@ -101,17 +107,45 @@ void drawFrame() {
 
     //if (!DEBUG) return;
 
+	unsigned int *b = (unsigned int *)screen->pixels;
+	int y, tx, ty;
+	for(ty = 0; ty < 24; ty++)
+	{
+	for(tx = 0; tx < 16; tx++)
+	{
+	for(y = 0; y<8; y++)
+	{
+		unsigned char b1, b2;
+		int tileaddr = 0x8000 +  ty*0x100 + tx*16 + y*2;
+
+		b1 = memory::read(tileaddr);
+		b2 = memory::read(tileaddr+1);
+		b[(ty*640*8)+(tx*8) + (y*640) + 0 + 0x1F400] = colors[(!!(b1&0x80))<<1 | !!(b2&0x80)];
+		b[(ty*640*8)+(tx*8) + (y*640) + 1 + 0x1F400] = colors[(!!(b1&0x40))<<1 | !!(b2&0x40)];
+		b[(ty*640*8)+(tx*8) + (y*640) + 2 + 0x1F400] = colors[(!!(b1&0x20))<<1 | !!(b2&0x20)];
+		b[(ty*640*8)+(tx*8) + (y*640) + 3 + 0x1F400] = colors[(!!(b1&0x10))<<1 | !!(b2&0x10)];
+		b[(ty*640*8)+(tx*8) + (y*640) + 4 + 0x1F400] = colors[(!!(b1&0x8))<<1 | !!(b2&0x8)];
+		b[(ty*640*8)+(tx*8) + (y*640) + 5 + 0x1F400] = colors[(!!(b1&0x4))<<1 | !!(b2&0x4)];
+		b[(ty*640*8)+(tx*8) + (y*640) + 6 + 0x1F400] = colors[(!!(b1&0x2))<<1 | !!(b2&0x2)];
+		b[(ty*640*8)+(tx*8) + (y*640) + 7 + 0x1F400] = colors[(!!(b1&0x1))<<1 | !!(b2&0x1)];
+	}
+	}
+	}
+
 
     int scale = 5;
     int xDraw = 0;
     int yDraw = 0;
     SDL_Rect rc;
 
+    cout << endl << "MAP:" << endl;
+
     for (int y=0; y<32; y++) {
         for (int x=0; x<32; x++) {
+            ushort tileNum = memory::read(bgMapStart() + x + (y * 32));
+            cout << Byte(tileNum) << "-";
 
             for (int tileY=0; tileY<16; tileY += 2) {
-                ushort tileNum = memory::read(bgMapStart() + x + (y * 32));
                 
                 byte b1 = memory::read(bgTileStart() + (tileNum * 16) + tileY);
                 byte b2 = memory::read(bgTileStart() + (tileNum * 16) + 1 + tileY);
@@ -136,10 +170,12 @@ void drawFrame() {
 
             xDraw += (7 * scale);
         }
+        cout << endl;
 
         yDraw += (7 * scale);
         xDraw = 0;
     }
+    cout << endl;
 
     OAMEntry *entry = (OAMEntry *)&oamRAM;
 
@@ -223,14 +259,19 @@ void tick() {
 
     if (l != currentLine && l < 144) {
         if (DEBUG) cout << "PPU:> NEW LINE: " << l << " FRAME: " << currentFrame << endl;
+
     }
 
+    if (lcdStats & 0x40 && memory::read(0xFF45) == l) {
+        cpu::handleInterrupt(2, true, false);
+    }
+    
     if (l != currentLine && l == 144) {
         currentFrame++;
         drawFrame();
         cout << endl << "PPU:> NEW FRAME: " << currentFrame << endl << endl;
 
-        //std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         cpu::handleInterrupt(cpu::IVBlank, true, false);
     }
@@ -243,6 +284,11 @@ void tick() {
     if (SDL_PollEvent(&e) > 0)
     {
         SDL_UpdateWindowSurface(sdlWindow);
+
+        if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_p) {
+            paused = !paused;
+            cout << "Paused: " << paused << endl;
+        }
 
         if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_RETURN) {
             cout << "KEYDOWN" << endl;

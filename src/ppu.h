@@ -11,6 +11,7 @@ struct ScrollInfo {
 };
 
 extern byte lcdControl;
+extern byte lcdStats;
 extern ScrollInfo scrollInfo;
 
 const int HZ = 1048576;

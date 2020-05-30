@@ -199,9 +199,12 @@ int handleLD(const OpCode &op) {
         if (op.params[0] == N) {
             //
             //exit(-1);
+            dstValue = bus::read(regPC + 1);
         } else if (op.params[0] == NN){
             //
             //exit(-1);
+            dstValue = bus::read(regPC + 1);
+            dstValue |= bus::read(regPC + 2) << 8;
             
         } else {
             cout << "Unknown LD Dest Type " << endl;
@@ -228,8 +231,15 @@ int handleLD(const OpCode &op) {
     switch(op.mode) {
         case ATypeRA: {
 
-            ushort addr = getAddrValue(op.params[0], srcValue);
+            ushort addr = getAddrValue(op.params[0], dstValue);
             bus::write(addr, srcValue);
+
+            cout << "LD R TO A: " << Short(addr) << " = " << Byte(srcValue) << " - " << Short(dstValue) << " - " << Short(srcValue) << endl;
+
+            if (addr == 0xC01a || addr == 0x1ac0) {
+                cout << "LD TO ADDR: " << Short(addr) << " = " << Byte(srcValue) << endl;
+                
+            }
         }
             break;
         case ATypeAR: {
@@ -241,6 +251,10 @@ int handleLD(const OpCode &op) {
                 dst->hi = bus::read(addr); ;
             } else {
                 *((ushort *)dst) = bus::read(addr); ;
+            }
+
+            if (addr == 0xC01a || addr == 0x1ac0) {
+                cout << "LD FROM ADDR: " << Short(addr) << " = " << Byte(bus::read(addr)) << endl;
             }
             
             break;
@@ -805,6 +819,11 @@ int handleEI(const OpCode &op) {
     return 0;
 }
 
+int handleSCF(const OpCode &op) {
+    set_flag(FlagC, true);
+    return 0;
+}
+
 int handleRST(const OpCode &op) {
     ushort *sp = (ushort *)&regSP;
     *sp = (*sp) - 2;
@@ -871,6 +890,7 @@ void init_handlers() {
     handlerMap[CB] = handleCB;
     handlerMap[CPL] = handleCPL;
     handlerMap[HALT] = handleHALT;
+    handlerMap[SCF] = handleSCF;
 
     initParamTypeMap();
 }

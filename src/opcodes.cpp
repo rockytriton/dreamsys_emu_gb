@@ -62,7 +62,7 @@ OpCode opCodes[] = {
     {0x34, "INC (HL)", INC, 1, 12, ATypeA, {HL}},
     {0x35, "DEC HL", DEC, 1, 12, ATypeA, {HL}},
     {0x36, "LD (HL),n", LD, 2, 12, ATypeRA, {HL, N}},
-    {0x37, "DAA", SCF, 1, 4},
+    {0x37, "SCF", SCF, 1, 4},
     {0x38, "JR C,e", JR, 2, 8, ATypeJ_C, {N}},
     {0x39, "ADD HL,SP", ADD, 1, 8, ATypeNA, {HL, SP}},
     {0x3A, "LDD A,(HL)", LDD, 1, 8, ATypeAR, {A, HL}},

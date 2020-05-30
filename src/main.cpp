@@ -20,6 +20,7 @@ int main(int argc, char **argv) {
 
     std::memcpy(ram, dsemu::cart::g_romData, 0x8000);
 
+    sleepMs(4000);
     
 
 /*
