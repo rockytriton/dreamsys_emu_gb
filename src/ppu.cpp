@@ -22,10 +22,30 @@ int currentFrame = 0;
 byte currentLine = 0;
 byte oamRAM[160];
 
+unsigned long **videoBuffer;
+
 void init() {
     currentFrame = 0;
     currentLine = 0;
     memset(oamRAM, 0, sizeof(oamRAM));
+
+    videoBuffer = new unsigned long *[256];
+
+    cout << "Video Buffer: " << Int64((uint64_t)videoBuffer) << endl;
+
+    for (int i=0; i<256; i++) {
+        videoBuffer[i] = new unsigned long[256];
+        //cout << "Video Buffer[" << i << "] = " << Int64((uint64_t)videoBuffer[i]) << endl;
+        //sleepMs(500);
+    }
+
+    for (int y=0; y<256; y++) {
+        for (int x=0; x<256; x++) {
+            videoBuffer[y][x] = 0;
+        }
+    }
+
+    //memset(videoBuffer, 0, 256 * 256 * sizeof(unsigned long));
 
 }
 
@@ -101,6 +121,82 @@ long targetFrameTime = 1000 / 60;
 long start = SDL_GetTicks();
 int count = 0;
 long prev = SDL_GetTicks();
+static unsigned long colors[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
+
+void drawLine(int lineNum) {
+    cout << "Drawing Line: " << lineNum << endl;
+
+   // sleep(5);
+
+    for (int x=0; x<256; x += 8) {
+
+        //cout << "Draw line X: " << x << endl;
+        unsigned long *pLine = videoBuffer[lineNum];
+
+        //cout << Int64((uint64_t)pLine) << endl;
+
+        //cout << "Got pline" << endl;
+        ushort bgTileNum = memory::read(ppu::bgMapStart() + x + (lineNum * 32));
+        //cout << "Got tile" << endl;
+        
+        if (ppu::bgTileStart() == 0x8800) {
+            bgTileNum += 128;
+        }
+
+        byte tileY = lineNum % 8;
+
+        //cout << "Getting b1" << endl;
+        byte b1 = memory::read(ppu::bgTileStart() + (bgTileNum * 16) + tileY);
+        //cout << "Getting b2" << endl;
+        byte b2 = memory::read(ppu::bgTileStart() + (bgTileNum * 16) + 1 + tileY);
+
+        //cout << "looping" << endl;
+
+        for (int bit=7, n=0; bit >= 0; bit--, n++) {
+            byte hi = !!(b1 & (1 << bit)) << 1;
+            byte lo = !!(b2 & (1 << bit));
+
+            byte color = hi|lo;
+            unsigned long c = colors[color];
+            pLine[x + n] = c;
+
+        }
+/*
+        int bit = x % 8;
+        byte hi = !!(b1 & (1 << bit)) << 1;
+        byte lo = !!(b2 & (1 << bit));
+        byte color = hi|lo;
+        unsigned long c = colors[color];
+        pLine[x] = c;
+*/
+
+        //cout << "Looped" << endl;
+    }
+
+
+    /*
+    for (int tileY=0; tileY<16; tileY += 2) {
+        byte b1 = memory::read(startLocation + (tileNum * 16) + tileY);
+        byte b2 = memory::read(startLocation + (tileNum * 16) + 1 + tileY);
+        
+        for (int bit=7, n=0; bit >= 0; bit--, n++) {
+            byte hi = !!(b1 & (1 << bit)) << 1;
+            byte lo = !!(b2 & (1 << bit));
+
+            byte color = hi|lo;
+
+            rc.x = x + (n * scale);
+            rc.y = y + (tileY / 2 * scale);
+            rc.w = scale;
+            rc.h = scale;
+
+            SDL_FillRect(surface, &rc, colors[color]);
+        }
+    }
+    */
+
+   //cout << "DREW" << endl;
+}
 
 void tick() {
     int f = cpu::getTickCount() % (TICKS_PER_FRAME);
@@ -109,6 +205,7 @@ void tick() {
     if (l != currentLine && l < 144) {
         if (DEBUG) cout << "PPU:> NEW LINE: " << l << " FRAME: " << currentFrame << endl;
 
+        drawLine(currentLine);
     }
 
     if (lcdStats & 0x40 && memory::read(0xFF45) == l) {

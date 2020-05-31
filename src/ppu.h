@@ -10,6 +10,8 @@ struct ScrollInfo {
     byte y;
 };
 
+extern unsigned long **videoBuffer;
+
 extern byte lcdControl;
 extern byte lcdStats;
 extern ScrollInfo scrollInfo;

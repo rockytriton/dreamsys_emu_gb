@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-Werror=all -std=c++17 -lSDL2 -lpthread
+CFLAGS=-O2 -Werror=all -std=c++17 -lSDL2 -lpthread
 DEPS = common.h
 
 %.o: %.cpp $(DEPS)

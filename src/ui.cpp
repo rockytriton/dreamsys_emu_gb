@@ -21,7 +21,7 @@ SDL_Surface *debugScreen;
 
 static unsigned long colors[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
 
-int scale = 5;
+int scale = 2;
 
 void init() {
     SDL_Init(SDL_INIT_VIDEO);
@@ -78,9 +78,6 @@ void displayTile(SDL_Surface *surface, ushort startLocation, ushort tileNum, int
 
             SDL_FillRect(surface, &rc, colors[color]);
         }
-
-        //xDraw = 0;
-        //xDraw += (8 * scale);
     }
 
 }
@@ -110,11 +107,29 @@ void updateDebugWindow() {
 void update() {
     //cout << "P" << endl;
 
+    if (ppu::currentFrame < 10) {
+        return;
+    }
+
     cpu::paused = true;
-    int xDraw = 0;
-    int yDraw = 0;
+    //int xDraw = 0;
+    //int yDraw = 0;
     SDL_Rect rc;
 
+    for (int lineNum=0; lineNum<256; lineNum++) {
+        unsigned long *pLine = ppu::videoBuffer[lineNum];
+
+        for (int x=0; x<256; x++) {
+            rc.x = x * scale;
+            rc.y = lineNum * scale;
+            rc.w = scale;
+            rc.h = scale;
+
+            SDL_FillRect(screen, &rc, pLine[x]);
+        }
+    }
+
+/*
     for (int y=0; y<32; y++) {
         for (int x=0; x<32; x++) {
             ushort tileNum = memory::read(ppu::bgMapStart() + x + (y * 32));
@@ -125,12 +140,23 @@ void update() {
 
             displayTile(screen, ppu::bgTileStart(), tileNum, xDraw + (x * scale), yDraw + (y * scale));
 
-/*
+            xDraw += (7 * scale);
+        }
+
+        yDraw += (7 * scale);
+        xDraw = 0;
+    }
+
+
+    yDraw = 0;
+    xDraw = 0;
+
+    for (int i=0; i<160; i += 4) {
+        ppu::OAMEntry *entry = (ppu::OAMEntry *)&ppu::oamRAM[i];
+        if (entry->tile != 0) {
             for (int tileY=0; tileY<16; tileY += 2) {
-                ushort tileNum = memory::read(ppu::bgMapStart() + x + (y * 32));
-                
-                byte b1 = memory::read(ppu::bgTileStart() + (tileNum * 16) + tileY);
-                byte b2 = memory::read(ppu::bgTileStart() + (tileNum * 16) + 1 + tileY);
+                byte b1 = memory::read(ppu::bgTileStart() + (entry->tile * 16) + tileY);
+                byte b2 = memory::read(ppu::bgTileStart() + (entry->tile * 16) + 1 + tileY);
                 
                 for (int bit=7, n=0; bit >= 0; bit--, n++) {
                     byte hi = !!(b1 & (1 << bit)) << 1;
@@ -138,8 +164,8 @@ void update() {
 
                     byte color = hi|lo;
 
-                    rc.x = xDraw + (x * scale) + (n * scale);
-                    rc.y = yDraw + (y * scale) + (tileY / 2 * scale);
+                    rc.x = xDraw + (entry->x * scale) + (n * scale) - (8 * scale);
+                    rc.y = yDraw + (entry->y * scale) + (tileY / 2 * scale) - (16 * scale);
                     rc.w = scale;
                     rc.h = scale;
 
@@ -149,45 +175,10 @@ void update() {
                 //xDraw = 0;
                 //xDraw += (8 * scale);
             }
+
+        }
+    }
 */
-
-            xDraw += (7 * scale);
-        }
-
-        yDraw += (7 * scale);
-        xDraw = 0;
-    }
-
-    ppu::OAMEntry *entry = (ppu::OAMEntry *)&ppu::oamRAM;
-
-    yDraw = 0;
-    xDraw = 0;
-
-    if (entry->tile != 0) {
-        for (int tileY=0; tileY<16; tileY += 2) {
-            byte b1 = memory::read(ppu::bgTileStart() + (entry->tile * 16) + tileY);
-            byte b2 = memory::read(ppu::bgTileStart() + (entry->tile * 16) + 1 + tileY);
-            
-            for (int bit=7, n=0; bit >= 0; bit--, n++) {
-                byte hi = !!(b1 & (1 << bit)) << 1;
-                byte lo = !!(b2 & (1 << bit));
-
-                byte color = hi|lo;
-
-                rc.x = xDraw + (entry->x * scale) + (n * scale);
-                rc.y = yDraw + (entry->y * scale) + (tileY / 2 * scale);
-                rc.w = scale;
-                rc.h = scale;
-
-                SDL_FillRect(screen, &rc, colors[color]);
-            }
-
-            //xDraw = 0;
-            //xDraw += (8 * scale);
-        }
-
-    }
-
     updateDebugWindow();
 
 	SDL_UpdateTexture(sdlTexture, NULL, screen->pixels, screen->pitch);

@@ -110,6 +110,9 @@ void tick() {
             //cpuSpeed = 1000;
         }
         
+        if ((n % 1000) == 0) {
+            usleep(1);
+        }
 
         if (DEBUG) cout << Int64(n) << ": " << Short(regPC) << ": " << Byte(b) << " " << Byte(bus::read(regPC + 1)) << " " << Byte(bus::read(regPC + 2)) << " (" << opCode.name << ") "
                 << " - AF: " << Short(toShort(regAF.lo, regAF.hi))
@@ -229,7 +232,6 @@ void handleInterrupt(byte flag, bool request, bool pcp1) {
             interruptsEnabled = false;
         }
     }
-    
     else if (flag) {
         cout << "OK ANOTHER INTERRUPT: " << Byte(flag) << endl;
         sleep(10);

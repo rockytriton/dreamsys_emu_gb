@@ -6,6 +6,7 @@
 #include "cpu.h"
 
 #include <unistd.h>
+#include <cstring>
 
 namespace dsemu::bus {
 
@@ -45,6 +46,10 @@ namespace dsemu::bus {
     void write(ushort address, byte b) {
 
         if (address < 0x8000) {
+            if (cart::g_header.cartType == 0) {
+                return;
+            }
+            
             //cart::write(address, b);
             if (address < 0x2000) {
                 //disable sram...
@@ -70,7 +75,7 @@ namespace dsemu::bus {
                     sleep(10);
                 }
 
-                sleep(1);
+                //sleep(1);
             } else if (cart::g_header.cartType == 1 ) {
                 cout << "OTHER: " << Short(address) << endl;
                 sleep(10);
