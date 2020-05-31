@@ -108,7 +108,9 @@ void updateDebugWindow() {
 }
 
 void update() {
+    //cout << "P" << endl;
 
+    cpu::paused = true;
     int xDraw = 0;
     int yDraw = 0;
     SDL_Rect rc;
@@ -192,6 +194,9 @@ void update() {
 	SDL_RenderClear(sdlRenderer);
 	SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
 	SDL_RenderPresent(sdlRenderer);
+
+   // cout << "UNP" << endl;
+    cpu::paused = false;
 }
 
 void handleEvents() {

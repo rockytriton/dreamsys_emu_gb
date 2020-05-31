@@ -47,7 +47,7 @@ OpCode opCodes[] = {
     {0x26, "LD H,n", LD, 2, 8, ATypeIR, {H, N}},
     {0x27, "DAA", DAA, 1, 4},
     {0x28, "JR Z,e", JR, 2, 8, ATypeJ_Z, {N}},
-    {0x29, "ADD HL,HL", ADD, 1, 8, ATypeNA, {HL, HL}},
+    {0x29, "ADD HL,HL", ADD, 1, 8, ATypeRR, {HL, HL}},
     {0x2A, "LDI A,(HL)", LDI, 1, 8, ATypeAR, {A, HL}},
     {0x2B, "DEC HL", DEC, 1, 8, ATypeNA, {HL}},
     {0x2C, "INC L", INC, 1, 4, ATypeNA, {L}},

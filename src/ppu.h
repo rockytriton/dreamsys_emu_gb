@@ -13,6 +13,7 @@ struct ScrollInfo {
 extern byte lcdControl;
 extern byte lcdStats;
 extern ScrollInfo scrollInfo;
+extern int currentFrame;
 
 const int HZ = 1048576;
 const int LINES_PER_FRAME = 154;

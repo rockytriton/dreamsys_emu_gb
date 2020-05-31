@@ -167,7 +167,7 @@ byte read(ushort address) {
             moreBit |= 1;
         }
 */
-        cout << "READ: " << Byte(output) << endl;//Byte(0xC0 | (0xF^moreBit) | (selDirs | selButtons)) << endl;
+        //cout << "READ: " << Byte(output) << endl;//Byte(0xC0 | (0xF^moreBit) | (selDirs | selButtons)) << endl;
         //sleep(2);
         return output; //0xC0 | (0xF^moreBit) | (selDirs | selButtons);
     } else if (address == 0xFF01) {
@@ -207,6 +207,7 @@ void write(ushort address, byte b) {
     
     if (it != handlerMap.end()) {
         it->second.second(b);
+        memory::write(address, b);
         return;
     }
 
@@ -218,32 +219,40 @@ void write(ushort address, byte b) {
         //memory::write(address, b & (0x10 | 0x20));
         selButtons = b & 0x20;
         selDirs = b & 0x10;
+        memory::write(address, b);
        // sleep(2);
         return;
     } else if (address == 0xFF01) {
        // cout << endl << "SERIAL WRITE: " << endl;
         //sleep(2);
+        memory::write(address, b);
         return;
     } else if (address == 0xFF02) {
         //cout << endl << "SERIAL WRITE: " << endl;
         //sleep(2);
+        memory::write(address, b);
         return;
     } else if (address == 0xFF03) {
        // cout << endl << "DIV WRITE: " << endl;
        // sleep(2);
+        memory::write(address, b);
         return;
     } else if (address == 0xFF04) {
        // cout << endl << "TIMA WRITE: " << endl;
         //sleep(2);
+        memory::write(address, b);
         return;
     } else if (address == 0xFF0F) {
         cpu::setInterruptsRequestsFlag(b);
+        memory::write(address, b);
         return;
     } else if (address == 0xFFFF) {
         cpu::setInterruptsEnableFlag(b);
+        memory::write(address, b);
         return;
     }
 
+        memory::write(address, b);
     if (DEBUG) cout << "UNKNOWN IO WRITE: " << Short(address) << endl;
     //sleep(5);
 }

@@ -3,6 +3,7 @@
 #include "cart.h"
 #include "emu.h"
 #include "ui.h"
+#include "ppu.h"
 
 #include <cstring>
 #include <unistd.h>
@@ -21,7 +22,7 @@ int main(int argc, char **argv) {
 
     dsemu::cart::load((const char *)argv[1]);
 
-    sleep(5);
+    sleep(1);
 
     std::memcpy(ram, dsemu::cart::g_romData, 0x8000);
 
@@ -29,9 +30,17 @@ int main(int argc, char **argv) {
 
     std::thread t(dsemu::run);
 
+    int prevFrame = 0;
+
     while(true) {
+        sleepMs(1);
         ui::handleEvents();
-        ui::update();
+
+        if (prevFrame != ppu::currentFrame) {
+            ui::update();
+        }
+
+        prevFrame = ppu::currentFrame;
     }
 
 /*

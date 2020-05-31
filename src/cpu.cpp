@@ -104,6 +104,12 @@ void tick() {
 
         OpCode opCode = opCodes[b];
         n++;
+        
+        if (regPC == 0xc7d2) {
+            cout << "END" << endl;
+            //cpuSpeed = 1000;
+        }
+        
 
         if (DEBUG) cout << Int64(n) << ": " << Short(regPC) << ": " << Byte(b) << " " << Byte(bus::read(regPC + 1)) << " " << Byte(bus::read(regPC + 2)) << " (" << opCode.name << ") "
                 << " - AF: " << Short(toShort(regAF.lo, regAF.hi))
@@ -116,6 +122,7 @@ void tick() {
         int n = handle_op(opCode);
 
         if (opCode.value == 0xff) {
+            cout << "HIT FF" << endl;
             sleep(5);
         }
 
@@ -129,7 +136,7 @@ void tick() {
         }
     }
 
-    //std::this_thread::sleep_for(std::chrono::milliseconds(cpuSpeed));
+    std::this_thread::sleep_for(std::chrono::milliseconds(cpuSpeed));
 
     if (interruptsEnabled && bus::read(0xFF0F)) {
         //cout << endl << "Interrupt ready to handle: " << Byte(bus::read(0xFF0F)) << endl;
@@ -145,6 +152,10 @@ void tick() {
 }
 
 void handleInterrupt(byte flag, bool request, bool pcp1) {
+    if (!flag) {
+       // return;
+    }
+
     if (flag & 1) {
         if (request) vbEnabled = true; else vbRequested = true;
 
@@ -219,9 +230,11 @@ void handleInterrupt(byte flag, bool request, bool pcp1) {
         }
     }
     
-    else {
+    else if (flag) {
         cout << "OK ANOTHER INTERRUPT: " << Byte(flag) << endl;
         sleep(10);
+    } else {
+        intRequestFlag = flag;
     }
 }
 

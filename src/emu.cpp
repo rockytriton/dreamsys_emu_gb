@@ -16,7 +16,7 @@ void run() {
 
     while(true) {
         if (cpu::paused) {
-            sleepMs(500);
+            sleepMs(1); //500);
             continue;
         }
 
