@@ -3,19 +3,20 @@
 #include "ppu.h"
 #include "bus.h"
 
-
+#include <fstream>
+#include <sstream>
 #include <SDL2/SDL.h>
 
 namespace dsemu {
 namespace cpu {
-
-//const ushort IV_VBLANK = 0x40;
 
 extern bool interruptsEnabled;
 bool haltWaitingForInterrupt = false;
 
 void init_handlers();
 int handle_op(OpCode &opCode);
+
+std::ofstream olog;
 
 Register regAF;
 Register regBC;
@@ -35,42 +36,33 @@ bool paused = false;
 uint64_t totalTicks = 0;
 
 void push(ushort s) {
-    ushort *sp = (ushort *)&regSP;
-    *sp = (*sp) - 2;
-    bus::write(*sp, s & 0xFF);
-    bus::write((*sp) + 1, (s >> 8) & 0xFF);
-
-    //cout << "HANDLING PUSH: " << Short(s) << endl;
+    setReg16Value(regSP, getReg16Value(regSP) - 2);
+    bus::write(getReg16Value(regSP), s & 0xFF);
+    bus::write(getReg16Value(regSP) + 1, (s >> 8) & 0xFF);
 }
 
 void push(byte b) {
-    ushort *sp = (ushort *)&regSP;
-    *sp = (*sp) - 1;
-    bus::write(*sp, b);
-}
-
-ushort spop() {
-    ushort *sp = (ushort *)&regSP;
-    byte lo = bus::read(*sp);
-    *sp = (*sp) + 1;
-    byte hi = bus::read(*sp);
-    *sp = (*sp) + 1;
-
-    return toShort(lo, hi);
+    setReg16Value(regSP, getReg16Value(regSP) - 1);
+    bus::write(getReg16Value(regSP), b);
 }
 
 byte pop() {
-    ushort *sp = (ushort *)&regSP;
-    byte lo = bus::read(*sp);
-    *sp = (*sp) + 1;
+    byte lo = bus::read(getReg16Value(regSP));
+    setReg16Value(regSP, getReg16Value(regSP) + 1);
 
     return lo;
+}
+
+ushort spop() {
+    byte lo = pop();
+    byte hi = pop();
+
+    return toShort(lo, hi);
 }
 
 uint64_t getTickCount() {
     return totalTicks;
 }
-
 
 void init() {
     regPC = 0x100;
@@ -81,9 +73,11 @@ void init() {
     *((short *)&regSP) = 0xFFFE;
 
     init_handlers();
+
+    //olog.open("./emu.log");
 }
 
-int cpuSpeed = 0; //1; //5;
+int cpuSpeed = 0;
 int n = 0;
 
 void tick() {
@@ -94,39 +88,38 @@ void tick() {
         return;
     }
 
-    if (n > 0xCAB0) {
-        //cpuSpeed = 500;
-        //DEBUG = true;
-    }
-
     if (!haltWaitingForInterrupt) {
         byte b = bus::read(regPC);
 
         OpCode opCode = opCodes[b];
         n++;
         
-        if (regPC == 0xc7d2) {
-            cout << "END" << endl;
-            //cpuSpeed = 1000;
-        }
-        
         if ((n % 1000) == 0) {
             usleep(1);
         }
 
-        if (DEBUG) cout << Int64(n) << ": " << Short(regPC) << ": " << Byte(b) << " " << Byte(bus::read(regPC + 1)) << " " << Byte(bus::read(regPC + 2)) << " (" << opCode.name << ") "
+        if (n == 0xeae8a) {
+            //paused = true;
+        }
+
+        std::stringstream ss;
+        ss << Int64(n) << ": " << Short(regPC) << ": " << Byte(b) << " " << Byte(bus::read(regPC + 1)) << " " << Byte(bus::read(regPC + 2)) << " (" << std::left << std::setfill(' ') << std::setw(10) << opCode.name << ") "
+                << std::right
                 << " - AF: " << Short(toShort(regAF.lo, regAF.hi))
                 << " - BC: " << Short(toShort(regBC.lo, regBC.hi))
                 << " - DE: " << Short(toShort(regDE.lo, regDE.hi))
                 << " - HL: " << Short(toShort(regHL.lo, regHL.hi))
+                << " - SP: " << Short(toShort(regSP.lo, regSP.hi))
                 << " - Cycles: " << (totalTicks - 1)
                 << endl;
+
+        if (DEBUG) cout << ss.str();
 
         int n = handle_op(opCode);
 
         if (opCode.value == 0xff) {
             cout << "HIT FF" << endl;
-            sleep(5);
+            //sleep(5);
         }
 
         regPC += opCode.length;
@@ -142,23 +135,11 @@ void tick() {
     std::this_thread::sleep_for(std::chrono::milliseconds(cpuSpeed));
 
     if (interruptsEnabled && bus::read(0xFF0F)) {
-        //cout << endl << "Interrupt ready to handle: " << Byte(bus::read(0xFF0F)) << endl;
-        //std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-
         handleInterrupt(bus::read(0xFF0F), true, false);
-    }
-
-    if (interruptsEnabled && vbEnabled && vbRequested) {
-        //cout << endl << "VBLANK Interrupt ready to handle: " << Byte(bus::read(0xFF0F)) << endl;
-        //std::this_thread::sleep_for(std::chrono::milliseconds(5000));
     }
 }
 
 void handleInterrupt(byte flag, bool request, bool pcp1) {
-    if (!flag) {
-       // return;
-    }
-
     if (flag & 1) {
         if (request) vbEnabled = true; else vbRequested = true;
 
@@ -250,12 +231,10 @@ byte getInterruptsRequestsFlag() {
 
 void setInterruptsEnableFlag(byte f) {
     intEnableFlag = f;
-    //cout << endl << "WRITING INT ENABLE FLAG: " << Byte(f) << " - " << Byte(intRequestFlag) << endl << endl;
 }
 
 void setInterruptsRequestsFlag(byte f) {
     intRequestFlag = f;
-    //cout << endl << "WRITING INT REQUEST FLAG: " << Byte(f) << " - " << Byte(intRequestFlag) << endl << endl;
 }
 
 

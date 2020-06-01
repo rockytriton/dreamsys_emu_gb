@@ -21,7 +21,7 @@ SDL_Surface *debugScreen;
 
 static unsigned long colors[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
 
-int scale = 2;
+int scale = 5;
 
 void init() {
     SDL_Init(SDL_INIT_VIDEO);
@@ -105,27 +105,20 @@ void updateDebugWindow() {
 }
 
 void update() {
-    //cout << "P" << endl;
-
-    if (ppu::currentFrame < 10) {
-        return;
-    }
-
     cpu::paused = true;
     //int xDraw = 0;
     //int yDraw = 0;
     SDL_Rect rc;
 
-    for (int lineNum=0; lineNum<256; lineNum++) {
-        unsigned long *pLine = ppu::videoBuffer[lineNum];
+    for (int lineNum=0; lineNum<ppu::YRES; lineNum++) {
 
-        for (int x=0; x<256; x++) {
+        for (int x=0; x<ppu::XRES; x++) {
             rc.x = x * scale;
             rc.y = lineNum * scale;
             rc.w = scale;
             rc.h = scale;
 
-            SDL_FillRect(screen, &rc, pLine[x]);
+            SDL_FillRect(screen, &rc, ppu::videoBuffer[x + (lineNum * ppu::XRES)]); // ppu::videoBuffer[lineNum][x]);
         }
     }
 
@@ -192,6 +185,8 @@ void update() {
 
 void handleEvents() {
 
+    //io::startDown = true;
+
     SDL_Event e;
     if (SDL_PollEvent(&e) > 0)
     {
@@ -204,13 +199,13 @@ void handleEvents() {
         }
 
         if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_RETURN) {
-            cout << "KEYDOWN" << endl;
+            //cout << "KEYDOWN" << endl;
             io::startDown = true;
             //sleepMs(1000);
         }
 
         if (e.type == SDL_KEYUP && e.key.keysym.sym == SDLK_RETURN) {
-            cout << "KEYUP" << endl;
+            //cout << "KEYUP" << endl;
             io::startDown = false;
             //sleepMs(1000);
         }

@@ -10,7 +10,7 @@ struct ScrollInfo {
     byte y;
 };
 
-extern unsigned long **videoBuffer;
+extern unsigned long *videoBuffer;
 
 extern byte lcdControl;
 extern byte lcdStats;
@@ -24,6 +24,9 @@ const int TICKS_PER_FRAME = LINES_PER_FRAME * TICKS_PER_LINE;
 const int OAM_TICKS = 20;
 const int PIXEL_TICKS = 43;
 const int VBLANK_LINE = 144;
+
+const int YRES = 144;
+const int XRES = 160;
 
 void tick();
 void init();

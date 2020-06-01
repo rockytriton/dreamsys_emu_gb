@@ -89,16 +89,6 @@ enum AddrType {
     ATypeR,
     ATypeA,
     ATypeSP
-    /*
-    ATypeA1R,
-    ATypeA2R,
-    ATypeRA1,
-    ATypeRA2,
-    ATypeIA2R,
-    ATypeIA1R,
-    ATypeRIA1,
-    ATypeRIA2
-    */
 };
 
 enum ParamType {
@@ -146,16 +136,24 @@ extern OpCode opCodes[];
 extern int extraCycles;
 extern bool haltWaitingForInterrupt;
 
-inline bool get_flag(Flags n) {
-    return (regAF.lo & (1 << n)) ? 1 : 0;
+inline bool getFlag(Flags n) {
+    return getBit(regAF.lo, n);
 }
 
-inline void set_flag(Flags n, bool val) {
-    if (val) {
-        regAF.lo |= (1 << n);
-    } else {
-        regAF.lo &= ~(1 << n);
-    }
+inline void setFlag(Flags n, bool val) {
+    setBit(regAF.lo, n, val);
+}
+
+inline ushort *getReg16Pointer(const Register &reg) {
+    return (ushort *)&reg;
+}
+
+inline ushort getReg16Value(const Register &reg) {
+    return *getReg16Pointer(reg);
+}
+
+inline void setReg16Value(const Register &reg, ushort val) {
+    *getReg16Pointer(reg) = val;
 }
 
 extern bool paused;

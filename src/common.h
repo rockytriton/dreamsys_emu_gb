@@ -17,8 +17,16 @@ using std::endl;
 typedef uint8_t byte; 
 typedef uint16_t ushort;
 
-inline bool getBit(byte b, byte n) {
-    return b & (1 << n);
+inline bool getBit(byte &b, byte n) {
+    return (b & (1 << n)) ? 1 : 0;
+}
+
+inline void setBit(byte &b, byte n, bool on) {
+    if (on) {
+        b |= (1 << n);
+    } else {
+        b &= ~(1 << n);
+    }
 }
 
 ushort toShort(byte a, byte b);
@@ -59,10 +67,3 @@ inline void sleepMs(int ms) {
 }
 
 extern bool DEBUG;
-
-/*
-ostream& operator << (std::ostream& os, complex<double> a) {
-        os << "(" << real(a) << "," << imag(a) << ")";
-        return os;
-}
-*/

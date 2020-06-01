@@ -46,6 +46,11 @@ void writeLCDControl(byte b) {
     //sleepMs(100);
 
     ppu::lcdControl = b;
+
+    if (!ppu::lcdOn()) {
+        cout << "Turned off LCD" << endl;
+        sleep(1);
+    }
 }
 
 void writeDMA(byte b) {

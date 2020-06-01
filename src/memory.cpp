@@ -57,7 +57,8 @@ namespace dsemu::memory {
             cpu::handleInterrupt(value, false);
         } else if (address == 0xFF0F) {
             cout << "\t - IE FL REGISTER WRITE: " << Byte(value) << endl;
-            cpu::handleInterrupt(value, true);
+            
+            //cpu::handleInterrupt(value, true);
         }
     }
 

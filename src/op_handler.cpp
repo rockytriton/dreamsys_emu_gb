@@ -101,12 +101,13 @@ byte *getPointer(ParamType pt, bool hlAsRam = true) {
         case AF: return &regAF.lo;
         case BC: return &regBC.lo;
         case DE: return &regDE.lo;
+        case SP: return &regSP.lo;
         case N: {
             //byte t = memory::ram[(regPC + 1)];
             //unsigned int i = 
             return &memory::ram[(regPC + 1)]; 
         } case HL: {
-            return hlAsRam ? &memory::ram[*((ushort *)&regHL.lo)] : &regHL.lo;
+            return hlAsRam ? &memory::ram[getReg16Value(regHL)] : &regHL.lo;
         }
         default:
             break;
@@ -140,10 +141,10 @@ int handleLDH(const OpCode &op) {
 
 ushort getAddrValue(ParamType op, short srcValue) {
     switch(op) {
-        case HL: return *((ushort *)&regHL);
-        case AF: return *((ushort *)&regAF);
-        case BC: return *((ushort *)&regBC);
-        case DE: return *((ushort *)&regDE);
+        case HL: return getReg16Value(regHL);
+        case AF: return getReg16Value(regAF);
+        case BC: return getReg16Value(regBC);
+        case DE: return getReg16Value(regDE);
         case NN: return srcValue;
         case N: return 0xFF00 | srcValue;
         default: 
@@ -240,7 +241,19 @@ int handleLD(const OpCode &op) {
         case ATypeRA: {
 
             ushort addr = getAddrValue(op.params[0], dstValue);
-            bus::write(addr, srcValue);
+
+            //cout << "BUS WRITE SHORT: " << Short(addr) << " = " << Short(srcValue) << endl;
+
+            if (srcType == RPT16) {
+                bus::write(addr, srcValue & 0xFF);
+                bus::write(addr + 1, srcValue >> 8);
+            } else {
+                bus::write(addr, srcValue);
+            }
+            //bus::write(addr, srcValue >> 0xFF);
+            //bus::write(addr + 1, srcValue & 0xFF);
+
+            //cout << "READING IT: " << Byte(bus::read(addr)) << "-" << Byte(bus::read(addr + 1)) << endl;
         }
             break;
         case ATypeAR: {
@@ -271,9 +284,16 @@ int handleLD(const OpCode &op) {
         case ATypeSP:
         {
             if (op.params[0] == HL) {
-                *((ushort *)&regHL) = *((ushort *)&regSP) + bus::read(regPC + 1);
+                char i = (char)bus::read(regPC + 1);
+                setReg16Value(regHL, getReg16Value(regSP) + i);
+
+                setFlag(FlagN, 0);
+                setFlag(FlagZ, 0);
+                setFlag(FlagC, ((getReg16Value(regSP)+i)&0xFF) < (getReg16Value(regSP)&0xFF));
+                setFlag(FlagH, ((getReg16Value(regSP)+i)&0xF) < (getReg16Value(regSP)&0xF));
+                
             } else {
-                *((ushort *)&regSP) = *((ushort *)&regHL);
+                setReg16Value(regSP, getReg16Value(regHL));
             }
         } break;
 
@@ -304,9 +324,9 @@ int handleCB(const OpCode &op) {
     if (bitOp) {
         switch(bitOp) {
             case 1:
-                set_flag(FlagZ, !((*pReg) & (1 << bit)));
-                set_flag(FlagN, false);
-                set_flag(FlagH, true);
+                setFlag(FlagZ, !((*pReg) & (1 << bit)));
+                setFlag(FlagN, false);
+                setFlag(FlagH, true);
                 break;
             case 2:
                 (*pReg) &= ~(1 << bit);
@@ -323,67 +343,67 @@ int handleCB(const OpCode &op) {
     }
 
     bitOp = bit;
-    int cBit = get_flag(FlagC);
+    int cBit = getFlag(FlagC);
 
     //cout << "BIT OP: " << Byte(bitOp) << endl;
 
     switch (bitOp) {
         case 0: //RLC
-            //(*pReg) <<= (1 + get_flag(FlagC));
+            //(*pReg) <<= (1 + getFlag(FlagC));
             {
                 byte old = !!((*pReg) & 0x80);
                 (*pReg) <<= 1;
                 (*pReg) |= old;
-                set_flag(FlagC, old);
-                set_flag(FlagZ, !(*pReg));
+                setFlag(FlagC, old);
+                setFlag(FlagZ, !(*pReg));
             }
             break;
         case 1: //RRC
-            //(*pReg) >>= (1 + get_flag(FlagC));
+            //(*pReg) >>= (1 + getFlag(FlagC));
             {
                 byte old = !!((*pReg) & 1);
                 (*pReg) >>= 1;
-                set_flag(FlagC, old);
+                setFlag(FlagC, old);
                 (*pReg) |= (old << 7);
-                set_flag(FlagZ, !(*pReg));
+                setFlag(FlagZ, !(*pReg));
             }
             break;
         case 2: //RL
-            set_flag(FlagC, !!((*pReg) & 0x80));
+            setFlag(FlagC, !!((*pReg) & 0x80));
             (*pReg) <<= 1;
             (*pReg) |= cBit;
-            set_flag(FlagZ, !(*pReg));
+            setFlag(FlagZ, !(*pReg));
             break;
         case 3: //RR
            // (*pReg) >>= 1;
-            set_flag(FlagC, (*pReg) & 1);
+            setFlag(FlagC, (*pReg) & 1);
             (*pReg) >>= 1;
             (*pReg) |= (cBit << 7);
-            set_flag(FlagZ, !(*pReg));
+            setFlag(FlagZ, !(*pReg));
             break;
         case 4: //SLA
-            set_flag(FlagC, !!((*pReg) & 0x80));
+            setFlag(FlagC, !!((*pReg) & 0x80));
             (*pReg) <<= 1;
-            set_flag(FlagZ, !(*pReg));
+            setFlag(FlagZ, !(*pReg));
             //(*pReg) |= cBit;
             break;
         case 5: //SRA 
             {
-            set_flag(FlagC, (*pReg) & 1);
+            setFlag(FlagC, (*pReg) & 1);
             byte old = (*pReg) & 0x80;
             (*pReg) >>= 1;
             (*pReg) |= old;
-            set_flag(FlagZ, !(*pReg));
+            setFlag(FlagZ, !(*pReg));
         }break;
         case 7: //SRL
-            set_flag(FlagC, (*pReg) & 1);
+            setFlag(FlagC, (*pReg) & 1);
             //cout << "SLR " << Byte(*pReg);
             (*pReg) >>= 1;
-            set_flag(FlagZ, !(*pReg));
+            setFlag(FlagZ, !(*pReg));
             //cout << " = " << Byte(*pReg) << endl;
             break;
         case 6: //SWAP
-            //set_flag(FlagC, 0);
+            //setFlag(FlagC, 0);
             (*pReg) = (((*pReg) & 0xF0) >> 4) | (((*pReg) & 0xF) << 4);
             regAF.lo = (!(*pReg)) << 7;
             break;
@@ -392,8 +412,8 @@ int handleCB(const OpCode &op) {
             exit(-1);
     }
 
-    set_flag(FlagH, 0);
-    set_flag(FlagN, 0);
+    setFlag(FlagH, 0);
+    setFlag(FlagN, 0);
     return 0;
 
 }
@@ -405,19 +425,19 @@ int conditionalJump(ushort location, const OpCode &op, bool &didJump) {
         regPC = location;
         didJump = true;
         return 0;
-    } else if (op.mode == ATypeJ_C && get_flag(FlagC)) {
+    } else if (op.mode == ATypeJ_C && getFlag(FlagC)) {
         regPC = location;
         didJump = true;
         return diff;
-    } else if (op.mode == ATypeJ_NC && !get_flag(FlagC)) {
+    } else if (op.mode == ATypeJ_NC && !getFlag(FlagC)) {
         regPC = location;
         didJump = true;
         return diff;
-    } else if (op.mode == ATypeJ_NZ && !get_flag(FlagZ)) {
+    } else if (op.mode == ATypeJ_NZ && !getFlag(FlagZ)) {
         regPC = location;
         didJump = true;
         return diff;
-    } else if (op.mode == ATypeJ_Z && get_flag(FlagZ)) {
+    } else if (op.mode == ATypeJ_Z && getFlag(FlagZ)) {
         regPC = location;
         didJump = true;
         return diff;
@@ -427,8 +447,14 @@ int conditionalJump(ushort location, const OpCode &op, bool &didJump) {
 }
 
 int handleJumpRelative(const OpCode &op) {
-    byte b = bus::read(regPC + 1);
-    ushort location = regPC + (char)b;
+    char b = bus::read(regPC + 1);
+
+    if ((byte)b == 0xfe) {
+        cout << "INF LOOP? " << endl;
+        sleep(5);
+    }
+
+    ushort location = regPC + b;
     bool didJump;
 
     return conditionalJump(location, op, didJump);
@@ -457,16 +483,16 @@ int handleJump(const OpCode &op) {
     if (op.mode == ATypeJ) {
         regPC = location - op.length;
         return 0;
-    } else if (op.mode == ATypeJ_C && get_flag(FlagC)) {
+    } else if (op.mode == ATypeJ_C && getFlag(FlagC)) {
         regPC = location - op.length;
         return 4;
-    } else if (op.mode == ATypeJ_NC && !get_flag(FlagC)) {
+    } else if (op.mode == ATypeJ_NC && !getFlag(FlagC)) {
         regPC = location - op.length;
         return 4;
-    } else if (op.mode == ATypeJ_NZ && !get_flag(FlagZ)) {
+    } else if (op.mode == ATypeJ_NZ && !getFlag(FlagZ)) {
         regPC = location - op.length;
         return 4;
-    } else if (op.mode == ATypeJ_Z && get_flag(FlagZ)) {
+    } else if (op.mode == ATypeJ_Z && getFlag(FlagZ)) {
         regPC = location - op.length;
         return 4;
     }
@@ -475,36 +501,36 @@ int handleJump(const OpCode &op) {
 }
 
 int handleDAA(const OpCode &op) {
-    if (!get_flag(FlagN)) {
+    if (!getFlag(FlagN)) {
         ushort a = regAF.hi;
         byte nl = (regAF.hi & 0x0f);
         bool finalVal = false;
         
-        if (get_flag(FlagH) || nl > 0x09) {
+        if (getFlag(FlagH) || nl > 0x09) {
             a += 6;
         }
 
-        if (get_flag(FlagC) || (a & 0xFFF0) > 0x90) {
+        if (getFlag(FlagC) || (a & 0xFFF0) > 0x90) {
             a += 0x60;
             finalVal = true;
         }
 
         regAF.hi = (byte)(a & 0xFF);
-        set_flag(FlagC, finalVal);
+        setFlag(FlagC, finalVal);
     } else {
-        if (get_flag(FlagH)) {
+        if (getFlag(FlagH)) {
             regAF.hi -= 6;
         }
 
-        if (get_flag(FlagC)) {
+        if (getFlag(FlagC)) {
             regAF.hi -= 0x60;
         } else {
-            set_flag(FlagC, false);
+            setFlag(FlagC, false);
         }
     }
 
-    set_flag(FlagZ, regAF.hi == 0);
-    set_flag(FlagH, false);
+    setFlag(FlagZ, regAF.hi == 0);
+    setFlag(FlagH, false);
     return 0;
 }
 
@@ -583,26 +609,26 @@ int handleRETI(const OpCode &op) {
 
 void setFlags(byte first, byte second, bool add, bool withCarry) {
     if (add) {
-        unsigned int a = first + second + (withCarry ? get_flag(FlagC) : 0);
-        byte cf = get_flag(FlagC);
-        //set_flag(FlagZ, (a & 0xFF) == 0);
-        set_flag(FlagZ, !(a & 0xFF));
+        unsigned int a = first + second + (withCarry ? getFlag(FlagC) : 0);
+        byte cf = getFlag(FlagC);
+        //setFlag(FlagZ, (a & 0xFF) == 0);
+        setFlag(FlagZ, !(a & 0xFF));
         //cout << "AF: 2: " << Byte(regAF.lo) << endl;
-        //set_flag(FlagC, a > 0xFF);
-        set_flag(FlagC, a >= 0x100);
+        //setFlag(FlagC, a > 0xFF);
+        setFlag(FlagC, a >= 0x100);
         //cout << "AF: 3: " << Byte(regAF.lo) << endl;
-        set_flag(FlagN, false);
+        setFlag(FlagN, false);
         //cout << "AF: 4: " << Byte(regAF.lo) << endl;
-        set_flag(FlagH, ((first&0xF) + (second&0xF) + (withCarry ? cf : 0)) >= 0x10);
+        setFlag(FlagH, ((first&0xF) + (second&0xF) + (withCarry ? cf : 0)) >= 0x10);
         //cout << "AF: 5: " << Byte(regAF.lo) << " - " << Short(a) << endl;
-        //set_flag(FlagH, (first & 0xF) + (second & 0xF) + (withCarry && get_flag(FlagC)) > 0xF);
+        //setFlag(FlagH, (first & 0xF) + (second & 0xF) + (withCarry && getFlag(FlagC)) > 0xF);
     } else {
-        int a = first - second - (withCarry && get_flag(FlagC));
-        byte cf = get_flag(FlagC);
-        set_flag(FlagZ, (a & 0xFF) == 0);
-        set_flag(FlagC, a < 0);
-        set_flag(FlagN, true);
-        set_flag(FlagH, (first & 0xF) - (second & 0xF) - (withCarry ? cf : 0) < 0);
+        int a = first - second - (withCarry && getFlag(FlagC));
+        byte cf = getFlag(FlagC);
+        setFlag(FlagZ, (a & 0xFF) == 0);
+        setFlag(FlagC, a < 0);
+        setFlag(FlagN, true);
+        setFlag(FlagH, (first & 0xF) - (second & 0xF) - (withCarry ? cf : 0) < 0);
     }
 
     return;
@@ -620,18 +646,18 @@ int handleADC(const OpCode &op) {
 
     if (op.value == 0xCE) {
         byte t = memory::read(regPC + 1);
-        unsigned int i = regAF.hi + t + get_flag(FlagC) >= 0x100;
+        unsigned int i = regAF.hi + t + getFlag(FlagC) >= 0x100;
         //setFlags(regAF.hi, t, true, true);
-        set_flag(FlagN, false);
-        set_flag(FlagH, ((regAF.hi&0xF) + (t&0xF) + get_flag(FlagC)) >= 0x10);
-        regAF.hi = regAF.hi + t + get_flag(FlagC);
-        set_flag(FlagC, i);
-        set_flag(FlagZ, !regAF.hi);
+        setFlag(FlagN, false);
+        setFlag(FlagH, ((regAF.hi&0xF) + (t&0xF) + getFlag(FlagC)) >= 0x10);
+        regAF.hi = regAF.hi + t + getFlag(FlagC);
+        setFlag(FlagC, i);
+        setFlag(FlagZ, !regAF.hi);
 
         return  0;
     }
 
-    unsigned int a = regAF.hi + *val + get_flag(FlagC);
+    unsigned int a = regAF.hi + *val + getFlag(FlagC);
 
     setFlags(regAF.hi, *val, true, true);
 
@@ -647,18 +673,18 @@ int handleADD(const OpCode &op) {
         regAF.hi = a & 0x00FF;
 
     } else if (op.params[0] == SP) {
-        byte e = bus::read(regPC + 1);
-        setFlags(*((ushort *)&regSP), e, true, false);
-        *((ushort *)&regSP) += e;
-        set_flag(FlagZ, false);
+        char e = bus::read(regPC + 1);
+        setFlags(getReg16Value(regSP), e, true, false);
+        setReg16Value(regSP, getReg16Value(regSP) + e);
+        setFlag(FlagZ, false);
     } else {
         ushort *p = (ushort *)getPointer(op.params[1], false);
         ushort *pHL = (ushort *)&regHL;
         int n = *pHL + *p;
 
-        set_flag(FlagC, n >= 0x10000);
-        set_flag(FlagN, false);
-        set_flag(FlagH, (n & 0xFFF) < (*pHL & 0xFFF));
+        setFlag(FlagC, n >= 0x10000);
+        setFlag(FlagN, false);
+        setFlag(FlagH, (n & 0xFFF) < (*pHL & 0xFFF));
         *pHL = n & 0xFFFF;
     }
 
@@ -678,7 +704,7 @@ int handleSUB(const OpCode &op) {
 int handleSBC(const OpCode &op) {
     byte *val = getPointer(op.params[0]);
 
-    short a = regAF.hi - *val - get_flag(FlagC);
+    short a = regAF.hi - *val - getFlag(FlagC);
     setFlags(regAF.hi, *val, false, true);
 
     regAF.hi = a & 0x00FF;
@@ -690,10 +716,10 @@ int handleAND(const OpCode &op) {
 
     regAF.hi &= *val;
     
-    set_flag(FlagZ, regAF.hi == 0);
-    set_flag(FlagN, false);
-    set_flag(FlagH, true);
-    set_flag(FlagC, 0);
+    setFlag(FlagZ, regAF.hi == 0);
+    setFlag(FlagN, false);
+    setFlag(FlagH, true);
+    setFlag(FlagC, 0);
     return 0;
 }
 
@@ -702,10 +728,10 @@ int handleOR(const OpCode &op) {
 
     regAF.hi |= *val;
     
-    set_flag(FlagZ, regAF.hi == 0);
-    set_flag(FlagN, false);
-    set_flag(FlagH, false);
-    set_flag(FlagC, 0);
+    setFlag(FlagZ, regAF.hi == 0);
+    setFlag(FlagN, false);
+    setFlag(FlagH, false);
+    setFlag(FlagC, 0);
     return 0;
 }
 
@@ -716,10 +742,10 @@ int handleXOR(const OpCode &op) {
 
     regAF.hi ^= *val;
     
-    set_flag(FlagZ, regAF.hi == 0);
-    set_flag(FlagN, false);
-    set_flag(FlagH, false);
-    set_flag(FlagC, 0);
+    setFlag(FlagZ, regAF.hi == 0);
+    setFlag(FlagN, false);
+    setFlag(FlagH, false);
+    setFlag(FlagC, 0);
     return 0;
 }
 
@@ -767,21 +793,21 @@ int handleINC(const OpCode &op) {
         case E: prev = regDE.lo++; val = regDE.lo; break;
         case H: prev = regHL.hi++; val = regHL.hi; break;
         case L: prev = regHL.lo++; val = regHL.lo; break;
-        case BC: prev = (*((ushort *)&regBC))++; val = (*((ushort *)&regBC));  return 0;
-        case DE: prev = (*((ushort *)&regDE))++; val = (*((ushort *)&regDE)); return 0;
-        case SP: prev = (*((ushort *)&regSP))++; val = (*((ushort *)&regSP)); return 0;
+        case BC: prev = (*getReg16Pointer(regBC))++; val = (getReg16Value(regBC));  return 0;
+        case DE: prev = (*getReg16Pointer(regDE))++; val = (getReg16Value(regDE)); return 0;
+        case SP: prev = (*getReg16Pointer(regSP))++; val = (getReg16Value(regSP)); return 0;
         case HL: {
             if (op.mode == ATypeA) {
-                byte b = bus::read((*((ushort *)&regHL)));
+                byte b = bus::read((getReg16Value(regHL)));
                 prev = b++;
-                bus::write((*((ushort *)&regHL)), b);
+                bus::write((getReg16Value(regHL)), b);
                 val = b;
 
                 //cout << "SETTING VAL TO B: " << Byte(val) << " - " << (uint64_t)&val << endl;
 
             } else {
-                prev = (*((ushort *)&regHL))++; 
-                val = (*((ushort *)&regHL)); 
+                prev = (*getReg16Pointer(regHL))++; 
+                val = (getReg16Value(regHL)); 
                 return 0;
             }
         } break;
@@ -793,9 +819,9 @@ int handleINC(const OpCode &op) {
 
     //cout << "VAL AGAIN: " << Byte(val) << " - " << (uint64_t)&val << endl;
 
-    set_flag(FlagZ, val == 0);
-    set_flag(FlagN, 0);
-    set_flag(FlagH, (prev & 0xF) == 0xF);
+    setFlag(FlagZ, val == 0);
+    setFlag(FlagN, 0);
+    setFlag(FlagH, (prev & 0xF) == 0xF);
     return 0;
 }
 
@@ -810,18 +836,18 @@ int handleDEC(const OpCode &op) {
         case E: regDE.lo--; val = regDE.lo; break;
         case H: regHL.hi--; val = regHL.hi; break;
         case L: regHL.lo--; val = regHL.lo; break;
-        case BC: (*((ushort *)&regBC))--; val = (*((ushort *)&regBC)); return 0; //cout << "DECD BC" << endl; return;
-        case DE: (*((ushort *)&regDE))--; val = (*((ushort *)&regDE)); return 0;
-        case SP: (*((ushort *)&regSP))--; val = (*((ushort *)&regSP)); return 0;
+        case BC: (*getReg16Pointer(regBC))--; val = (getReg16Value(regBC)); return 0; //cout << "DECD BC" << endl; return;
+        case DE: (*getReg16Pointer(regDE))--; val = (getReg16Value(regDE)); return 0;
+        case SP: (*getReg16Pointer(regSP))--; val = (getReg16Value(regSP)); return 0;
         case HL: {
             if (op.mode == ATypeA) {
-                byte b = bus::read((*((ushort *)&regHL)));
+                byte b = bus::read((getReg16Value(regHL)));
                 b--;
-                bus::write((*((ushort *)&regHL)), b);
+                bus::write((getReg16Value(regHL)), b);
                 val = b;
             } else {
-                (*((ushort *)&regHL))--; 
-                val = (*((ushort *)&regHL)); 
+                (*getReg16Pointer(regHL))--; 
+                val = (getReg16Value(regHL)); 
                 return 0;
             }
         } break;
@@ -832,20 +858,20 @@ int handleDEC(const OpCode &op) {
     }
 
     //cout << "FUCKING WITH FLAGS..." << endl;
-    set_flag(FlagZ, val == 0);
-    set_flag(FlagN, 1);
-    set_flag(FlagH, (val & 0xF) == 0x0F);
+    setFlag(FlagZ, val == 0);
+    setFlag(FlagN, 1);
+    setFlag(FlagH, (val & 0xF) == 0x0F);
     return 0;
 }
 
 int handleRLA(const OpCode &op) {
-    byte cf = get_flag(FlagC);
-    set_flag(FlagC, !!(regAF.hi & (1 << 7)));
+    byte cf = getFlag(FlagC);
+    setFlag(FlagC, !!(regAF.hi & (1 << 7)));
     regAF.hi <<= 1;
     regAF.hi += cf;
-    set_flag(FlagZ, false);
-    set_flag(FlagH, false);
-    set_flag(FlagN, false);
+    setFlag(FlagZ, false);
+    setFlag(FlagH, false);
+    setFlag(FlagN, false);
     return 0;
 }
 
@@ -854,31 +880,31 @@ int handleRLCA(const OpCode &op) {
     regAF.hi <<= 1;
     regAF.hi |= b;
     
-    set_flag(FlagC, b);
-    set_flag(FlagZ, false);
-    set_flag(FlagH, false);
-    set_flag(FlagN, false);
+    setFlag(FlagC, b);
+    setFlag(FlagZ, false);
+    setFlag(FlagH, false);
+    setFlag(FlagN, false);
 
     return 0;
 }
 
 int handleRRA(const OpCode &op) {
-    byte carry = get_flag(FlagC);
+    byte carry = getFlag(FlagC);
 
-    set_flag(FlagC, regAF.hi & 1);
+    setFlag(FlagC, regAF.hi & 1);
     regAF.hi >>= 1;
     regAF.hi |= (carry << 7);
-    set_flag(FlagZ, false);
-    set_flag(FlagH, false);
-    set_flag(FlagN, false);
+    setFlag(FlagZ, false);
+    setFlag(FlagH, false);
+    setFlag(FlagN, false);
 
     return 0;
 }
 
 int handleCPL(const OpCode &op) {
     regAF.hi = ~regAF.hi;
-    set_flag(FlagH, true);
-    set_flag(FlagN, true);
+    setFlag(FlagH, true);
+    setFlag(FlagN, true);
     return 0;
 }
 
@@ -888,51 +914,48 @@ int handleRRCA(const OpCode &op) {
     regAF.hi |= b << 7;
     
     if (b) {
-        set_flag(FlagC, true);
+        setFlag(FlagC, true);
     } else {
-        set_flag(FlagC, false);
+        setFlag(FlagC, false);
     }
 
-    set_flag(FlagZ, false);
-    set_flag(FlagH, false);
-    set_flag(FlagN, false);
+    setFlag(FlagZ, false);
+    setFlag(FlagH, false);
+    setFlag(FlagN, false);
 
     return 0;
 }
 
 int handleDI(const OpCode &op) {
     interruptsEnabled = false;
-    //cout << "DISABLED INT" << endl;
-    //sleep(3);
     return 0;
 }
 
 int handleEI(const OpCode &op) {
+    //interruptsEnabled = true;
     eiCalled = true;
-    //cout << "ENABLED INT" << endl;
-    //sleep(3);
     return 0;
 }
 
 int handleSCF(const OpCode &op) {
-    set_flag(FlagH, false);
-    set_flag(FlagN, false);
-    set_flag(FlagC, true);
+    setFlag(FlagH, false);
+    setFlag(FlagN, false);
+    setFlag(FlagC, true);
     return 0;
 }
 
 int handleCCF(const OpCode &op) {
-    set_flag(FlagH, false);
-    set_flag(FlagN, false);
-    set_flag(FlagC, !get_flag(FlagC));
+    setFlag(FlagH, false);
+    setFlag(FlagN, false);
+    setFlag(FlagC, !getFlag(FlagC));
     return 0;
 }
 
 int handleRST(const OpCode &op) {
     ushort *sp = (ushort *)&regSP;
     *sp = (*sp) - 2;
-    bus::write(*sp, (regPC + 1) & 0xFF);
-    bus::write((*sp) + 1, ((regPC + 1) >> 8) & 0xFF);
+    bus::write(*sp, (byte)((regPC + 1) & 0xFF));
+    bus::write((*sp) + 1, (byte)(((regPC + 1) >> 8) & 0xFF));
 
     switch(op.params[0]) {
         case x00: regPC = 0x00; break;
