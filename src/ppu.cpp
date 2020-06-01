@@ -29,9 +29,10 @@ void init() {
     currentLine = 0;
     memset(oamRAM, 0, sizeof(oamRAM));
 
-    videoBuffer = new unsigned long[YRES * XRES];
-
+    videoBuffer = new unsigned long[256 * 256];
     memset(videoBuffer, 0, 256 * 256 * sizeof(unsigned long));
+
+    cout << "VID BUFF: " << Int64((uint64_t)videoBuffer) << endl;
 }
 
 void drawFrame() {
@@ -131,6 +132,7 @@ void drawLine(int lineNum) {
         byte lo = !!(b2 & (1 << bit));
         byte color = hi|lo;
         unsigned long c = colors[color];
+
         videoBuffer[x + (lineNum * XRES)] = c;
     }
 }

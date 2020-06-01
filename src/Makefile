@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-O2 -Werror=all -std=c++17
+CFLAGS=-Werror=all -std=c++17
 DEPS = common.h
 
 %.o: %.cpp $(DEPS)

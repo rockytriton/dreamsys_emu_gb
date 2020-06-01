@@ -39,8 +39,8 @@ namespace dsemu::bus {
 
         if (address < 0x8000) {
             if (cart::g_header.cartType == 0) {
-                cout << "BAD WRITE" << endl;
-                sleep(1);
+                //cout << "BAD WRITE" << endl;
+                //sleep(1);
                 return;
             }
             
@@ -53,7 +53,7 @@ namespace dsemu::bus {
                 cout << "Memory Model Select: " << Byte(b & 1) << endl;
                 sleep(10);
             } else if (cart::g_header.cartType == 1 && address >= 0x2000 && address <= 0x3FFF) {
-                cout << "Rom Bank Select: " << Byte(b & 0x1F) << endl;
+                //cout << "Rom Bank Select: " << Byte(b & 0x1F) << endl;
 
                 byte bank = b & 0x1F;
                 if(bank == 0 || bank == 0x20 || bank == 0x40 || bank == 0x60)
@@ -61,7 +61,7 @@ namespace dsemu::bus {
 
                 memcpy(&memory::ram[0x4000], cart::g_romData + (bank * 0x4000), 0x4000);
 
-                cout << "Copied starting at: " << (int)(bank * 0x4000) << " - size: " << cart::g_romSize << endl;
+                //cout << "Copied starting at: " << (int)(bank * 0x4000) << " - size: " << cart::g_romSize << endl;
 
                 if ((bank * 0x4000) > cart::g_romSize) {
                     cout << "TOO BIG" << endl;

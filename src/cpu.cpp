@@ -161,7 +161,7 @@ void handleInterrupt(byte flag, bool request, bool pcp1) {
             }
 
             if (haltWaitingForInterrupt) {
-                cout << "RESUMING" << endl;
+                //cout << "RESUMING" << endl;
             }
 
             haltWaitingForInterrupt = false;
@@ -185,7 +185,7 @@ void handleInterrupt(byte flag, bool request, bool pcp1) {
             }
 
             if (haltWaitingForInterrupt) {
-                cout << "RESUMING" << endl;
+                //cout << "RESUMING" << endl;
             }
 
             haltWaitingForInterrupt = false;
@@ -205,7 +205,7 @@ void handleInterrupt(byte flag, bool request, bool pcp1) {
             }
 
             if (haltWaitingForInterrupt) {
-                cout << "RESUMING" << endl;
+                //cout << "RESUMING" << endl;
             }
 
             haltWaitingForInterrupt = false;

@@ -17,12 +17,11 @@ using namespace dsemu;
 int main(int argc, char **argv) {
     cout << "Starting main.." << endl;
 
-
     std::memset(ram, 0, 0xFFFF);
 
     dsemu::cart::load((const char *)argv[1]);
 
-    sleep(1);
+    //sleep(1);
 
     std::memcpy(ram, dsemu::cart::g_romData, 0x8000);
 

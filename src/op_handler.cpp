@@ -155,7 +155,7 @@ ushort getAddrValue(ParamType op, short srcValue) {
 }
 
 int handleLD(const OpCode &op) {
-    RegParamType srcType;
+    RegParamType srcType = RegParamType::RPTHi;
     RegParamType dstType;
 
     Register *src;
@@ -978,7 +978,7 @@ int handleRST(const OpCode &op) {
 
 int handleHALT(const OpCode &opCode) {
     haltWaitingForInterrupt = true;
-    cout << "HALTING..." << endl;
+    //cout << "HALTING..." << endl;
     return 0;
 }
 

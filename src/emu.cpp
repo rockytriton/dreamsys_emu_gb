@@ -22,8 +22,6 @@ void run() {
 
         cpu::tick();
         ppu::tick();
-
-		
     }
 }
 

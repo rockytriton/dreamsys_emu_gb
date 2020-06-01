@@ -49,7 +49,7 @@ void writeLCDControl(byte b) {
 
     if (!ppu::lcdOn()) {
         cout << "Turned off LCD" << endl;
-        sleep(1);
+        //sleep(1);
     }
 }
 
