@@ -28,5 +28,6 @@ extern int g_romSize;
 
 bool load(const string &romFile);
 byte read(ushort address);
+void control(ushort address, byte b);
 
 }

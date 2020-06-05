@@ -9,7 +9,6 @@
 
 namespace dsemu::io {
 
-
 typedef byte (*IO_READ_HANDLER)();
 typedef void (*IO_WRITE_HANDLER)(byte b);
 
@@ -26,62 +25,35 @@ void writeScrollX(byte b) {
 }
 
 byte readLCDStats() {
-    //cout << "READING LCD STATS: " << endl;
     return ppu::lcdStats;
 }
 
 void writeLCDStats(byte b) {
-    //cout << "WRITING LCD STATS: " << Byte(b) << endl;
     ppu::lcdStats = b;
 }
 
 byte readLCDControl() {
-    //cout << "READING LCD STATS: " << endl;
     return ppu::lcdControl;
 }
 
 void writeLCDControl(byte b) {
-    //cout << "WRITING LCD CONTROL: " << Byte(b) << endl;
-
-    //sleepMs(100);
-
     ppu::lcdControl = b;
-
-    if (!ppu::lcdOn()) {
-        cout << "Turned off LCD" << endl;
-        //sleep(1);
-    }
 }
 
 void writeDMA(byte b) {
-    //cout << endl << "DOING DMA WRITE: " << Byte(b) << endl << endl;
-
     for (int i=0; i<0xA0; i++) {
         byte d = bus::read((b * 0x100) + i);
         bus::write(0xFE00 + i, d);
     }
-/*
-    cout << "VRAM: " << endl;
 
-    for (int i=0x8000; i<0x80FF; i++) {
-        if ((i % 32) == 0) {
-            cout << endl;
-        }
-
-        cout << " " << Byte(memory::ram[i]);
-    }
-
-    cout << endl;
-*/
     cpu::extraCycles = 0;
 }
 
 byte readDMS() {
-    //cout << endl << "DOING DMA READ" << endl << endl;
     return 0;
 }
 
-#define ADD_MEMORY_HANDLER(X) handlerMap[X] = std::make_pair([]() -> byte { return memory::read(X); }, [](byte b) -> void { memory::write(X, b); });
+#define ADD_MEMORY_HANDLER(X) handlerMap[X] = std::make_pair([]() -> byte { if (X < 0x8000) { cout << "OOPS OOB" << endl; sleep(10); } return memory::read(X); }, [](byte b) -> void { memory::write(X, b); });
 
 void init() {
     IO_WRITE_HANDLER noWrite = [](byte b) -> void { };
@@ -119,7 +91,6 @@ byte read(ushort address) {
     }
 
     if (address == 0xFF00) {
-        //cout << endl << "JOYPAD READ: " << Byte(memory::read(address)) << endl;
         byte output = 0xCF;
 
 
@@ -131,8 +102,6 @@ byte read(ushort address) {
             } else if (aDown) {
                 output &= ~(1 << 0);
             }
-
-            ///output = (startDown << 3) | (selectDown << 2) | (aDown << 0);
         }
 
         if (!selDirs) {
@@ -145,35 +114,8 @@ byte read(ushort address) {
             } else if (downDown) {
                 output &= ~(1 << 3);
             }
-            //moreBit = (leftDown << 1) | (rightDown << 0) | (upDown << 2) | (downDown << 3);
         }
 
-/*
-        if (!selButtons && startDown) {
-            moreBit |= (1 << 3);
-            //cout << "SAYING START DOWN" << endl;
-        }
-
-        if (!selButtons && selectDown) {
-            moreBit |= (1 << 2);
-            //cout << "SAYING START DOWN" << endl;
-        }
-
-
-        if (!selButtons && aDown) {
-            moreBit |= 1;
-        }
-
-        if (!selDirs && leftDown) {
-            moreBit |= (1 << 1);
-        }
-
-        if (!selDirs && rightDown) {
-            moreBit |= 1;
-        }
-*/
-        //cout << "READ: " << Byte(output) << endl;//Byte(0xC0 | (0xF^moreBit) | (selDirs | selButtons)) << endl;
-        //sleep(2);
         return output; //0xC0 | (0xF^moreBit) | (selDirs | selButtons);
     } else if (address == 0xFF01) {
         //cout << endl << "SERIAL READ: " << endl;
@@ -257,7 +199,10 @@ void write(ushort address, byte b) {
         return;
     }
 
+    if (address > 0xFF00) {
         memory::write(address, b);
+    }
+
     if (DEBUG) cout << "UNKNOWN IO WRITE: " << Short(address) << endl;
     //sleep(5);
 }

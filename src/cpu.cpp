@@ -37,8 +37,7 @@ uint64_t totalTicks = 0;
 
 void push(ushort s) {
     setReg16Value(regSP, getReg16Value(regSP) - 2);
-    bus::write(getReg16Value(regSP), s & 0xFF);
-    bus::write(getReg16Value(regSP) + 1, (s >> 8) & 0xFF);
+    bus::write(getReg16Value(regSP), s);
 }
 
 void push(byte b) {

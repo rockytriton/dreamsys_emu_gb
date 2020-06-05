@@ -128,9 +128,9 @@ int handleLDH(const OpCode &op) {
 
     if (srcIsA) {
         byte *p = getPointer(op.params[0]);
-
-        if (DEBUG) cout << "Writing A to address: " << Short(*p | 0xFF00) << endl;
-
+        //cout << "READING B: " << Int64((uint64_t)p) << endl;
+        //cout << "B: " << Byte(*p) << endl;
+        
         bus::write(*p | 0xFF00, regAF.hi);
     } else {
         byte *p = getPointer(op.params[1]);
@@ -242,18 +242,11 @@ int handleLD(const OpCode &op) {
 
             ushort addr = getAddrValue(op.params[0], dstValue);
 
-            //cout << "BUS WRITE SHORT: " << Short(addr) << " = " << Short(srcValue) << endl;
-
             if (srcType == RPT16) {
-                bus::write(addr, srcValue & 0xFF);
-                bus::write(addr + 1, srcValue >> 8);
-            } else {
                 bus::write(addr, srcValue);
+            } else {
+                bus::write(addr, (byte)srcValue);
             }
-            //bus::write(addr, srcValue >> 0xFF);
-            //bus::write(addr + 1, srcValue & 0xFF);
-
-            //cout << "READING IT: " << Byte(bus::read(addr)) << "-" << Byte(bus::read(addr + 1)) << endl;
         }
             break;
         case ATypeAR: {
@@ -645,7 +638,7 @@ int handleADC(const OpCode &op) {
     byte *val = getPointer(op.params[1]);
 
     if (op.value == 0xCE) {
-        byte t = memory::read(regPC + 1);
+        byte t = bus::read(regPC + 1);
         unsigned int i = regAF.hi + t + getFlag(FlagC) >= 0x100;
         //setFlags(regAF.hi, t, true, true);
         setFlag(FlagN, false);
@@ -803,8 +796,6 @@ int handleINC(const OpCode &op) {
                 bus::write((getReg16Value(regHL)), b);
                 val = b;
 
-                //cout << "SETTING VAL TO B: " << Byte(val) << " - " << (uint64_t)&val << endl;
-
             } else {
                 prev = (*getReg16Pointer(regHL))++; 
                 val = (getReg16Value(regHL)); 
@@ -816,8 +807,6 @@ int handleINC(const OpCode &op) {
             exit(-1);
             return 0;
     }
-
-    //cout << "VAL AGAIN: " << Byte(val) << " - " << (uint64_t)&val << endl;
 
     setFlag(FlagZ, val == 0);
     setFlag(FlagN, 0);
@@ -836,7 +825,7 @@ int handleDEC(const OpCode &op) {
         case E: regDE.lo--; val = regDE.lo; break;
         case H: regHL.hi--; val = regHL.hi; break;
         case L: regHL.lo--; val = regHL.lo; break;
-        case BC: (*getReg16Pointer(regBC))--; val = (getReg16Value(regBC)); return 0; //cout << "DECD BC" << endl; return;
+        case BC: (*getReg16Pointer(regBC))--; val = (getReg16Value(regBC)); return 0;
         case DE: (*getReg16Pointer(regDE))--; val = (getReg16Value(regDE)); return 0;
         case SP: (*getReg16Pointer(regSP))--; val = (getReg16Value(regSP)); return 0;
         case HL: {
@@ -857,7 +846,6 @@ int handleDEC(const OpCode &op) {
             return 0;
     }
 
-    //cout << "FUCKING WITH FLAGS..." << endl;
     setFlag(FlagZ, val == 0);
     setFlag(FlagN, 1);
     setFlag(FlagH, (val & 0xF) == 0x0F);
@@ -952,10 +940,7 @@ int handleCCF(const OpCode &op) {
 }
 
 int handleRST(const OpCode &op) {
-    ushort *sp = (ushort *)&regSP;
-    *sp = (*sp) - 2;
-    bus::write(*sp, (byte)((regPC + 1) & 0xFF));
-    bus::write((*sp) + 1, (byte)(((regPC + 1) >> 8) & 0xFF));
+    push((ushort)(regPC + 1));
 
     switch(op.params[0]) {
         case x00: regPC = 0x00; break;
@@ -978,7 +963,6 @@ int handleRST(const OpCode &op) {
 
 int handleHALT(const OpCode &opCode) {
     haltWaitingForInterrupt = true;
-    //cout << "HALTING..." << endl;
     return 0;
 }
 

@@ -3,6 +3,7 @@
 #include "memory.h"
 #include "io.h"
 #include "ui.h"
+#include "bus.h"
 
 #include <chrono>
 #include <thread>
@@ -27,6 +28,8 @@ unsigned long *videoBuffer;
 void init() {
     currentFrame = 0;
     currentLine = 0;
+    scrollInfo.x = 0;
+    scrollInfo.y = 0;
     memset(oamRAM, 0, sizeof(oamRAM));
 
     videoBuffer = new unsigned long[256 * 256];
@@ -76,11 +79,11 @@ byte readOAM(ushort address) {
     //cout << "READ DUMPING OAM RAM: " << Short(address) << " - " << Byte(memory::ram[address]) << " - " << endl;
 
     for (int i=0; i<160; i++) {
-        if ((i % 32) == 0) cout << endl;
+        //if ((i % 32) == 0) cout << endl;
         //cout << " " << Byte(oamRAM[i]);
     }
 
-    cout << endl;
+    //cout << endl;
 
     //sleep(2);
 
@@ -90,19 +93,6 @@ byte readOAM(ushort address) {
 
 void writeOAM(ushort address, byte b) {
     oamRAM[address] = b;
-
-/*
-    cout << "WRITE DUMPING OAM RAM: " << Short(address) << " - " << Byte(memory::ram[address]) << " - " << Byte(b) << endl;
-
-    for (int i=0; i<160; i++) {
-        if ((i % 32) == 0) cout << endl;
-        cout << " " << Byte(oamRAM[i]);
-    }
-
-    cout << endl;
-*/
-
-    //sleep(2);
 }
 
 long targetFrameTime = 1000 / 60;
@@ -111,21 +101,23 @@ int count = 0;
 long prev = SDL_GetTicks();
 static unsigned long colors[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
 
+int normScroll = 3;
+
 void drawLine(int lineNum) {
-    int mapy = lineNum / 8;
-    byte tileY = (lineNum % 8) * 2;
+    int mapy = (lineNum + getYScroll()) % 256;
+    byte tileY = ((lineNum) % 8) * 2;
 
     for (int x=0; x<XRES; x += 1) {
-        int mapx = x / 8;
+        int mapx = (x + getXScroll()) % 256;
 
-        ushort bgTileNum = memory::read(ppu::bgMapStart() + mapx + (mapy * 32));
+        ushort bgTileNum = bus::read(ppu::bgMapStart() + (mapx/8) + ((mapy/8) * 32));
 
         if (ppu::bgTileStart() == 0x8800) {
             bgTileNum += 128;
         }
 
-        byte b1 = memory::read(ppu::bgTileStart() + (bgTileNum * 16) + tileY);
-        byte b2 = memory::read(ppu::bgTileStart() + (bgTileNum * 16) + 1 + tileY);
+        byte b1 = bus::read(ppu::bgTileStart() + (bgTileNum * 16) + tileY);
+        byte b2 = bus::read(ppu::bgTileStart() + (bgTileNum * 16) + 1 + tileY);
 
         int bit = 7 - (x % 8);
         byte hi = !!(b1 & (1 << bit)) << 1;
@@ -147,7 +139,7 @@ void tick() {
         drawLine(currentLine);
     }
 
-    if (lcdStats & 0x40 && memory::read(0xFF45) == l) {
+    if (lcdStats & 0x40 && bus::read(0xFF45) == l) {
         cpu::handleInterrupt(2, true, false);
     }
     
@@ -172,8 +164,6 @@ void tick() {
         drawFrame();
         if (!cpu::haltWaitingForInterrupt) cout << endl << "PPU:> NEW FRAME: " << currentFrame << endl << endl;
 
-        //std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
         cpu::handleInterrupt(cpu::IVBlank, true, false);
 
         prev = SDL_GetTicks();
@@ -181,7 +171,6 @@ void tick() {
 
     currentLine = l;
 
-    //if (!DEBUG) return;
 
 }
 
@@ -189,62 +178,3 @@ void tick() {
 
 
 
-/*
-
-
-
-
-    SDL_Rect rc;
-    rc.x = 10;
-    rc.y = 10;
-    rc.w = 5;
-    rc.h = 5;
-
-    SDL_FillRect(screen, &rc, 0xFF00FFFF);
-
-    int drawX = 0;
-    int drawY = 0;
-    int scale = 1;
-
-    //cout << "READING TILES: ";
-
-    for (int y=0; y<32; y++) {
-    for (int x=0; x<32; x++) {
-        byte tileNum = memory::read((x + (y *32)) + bgMapStart());
-        //tileNum = 1;
-        ushort tileStart = bgTileStart() + (tileNum * 16);
-        //cout << Byte(tileNum) << "-";
-
-        drawY = (y * 8 * scale);
-
-        for (int i=0; i<16; i += 2) {
-		    //int tileaddr = 0x8000 +  0*0x100 + tileNum*16 + i;
-            byte b1 = memory::read(tileStart + i);
-            byte b2 = memory::read(tileStart + i + 1);
-            //byte b1 = memory::read(tileaddr);
-            //byte b2 = memory::read(tileaddr +1);
-
-            for (int bit=7; bit>=0; bit--) {
-                byte hiBit = (!!(b1 & (1 << bit)) << 1);
-                byte loBit = (!!(b2 & (1 << bit)));
-
-                byte color = hiBit | loBit;
-                rc.x = drawX + ((7 - bit) * scale);
-                rc.y = drawY;
-                rc.w = scale;
-                rc.h = scale;
-
-                SDL_FillRect(screen, &rc, colours[color]);
-            }
-
-            drawY += scale;
-        }
-        
-
-        drawX += (8 * scale);
-    }
-    drawX = 0;
-    }
-
-    cout << endl;
-*/

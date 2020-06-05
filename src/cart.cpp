@@ -1,5 +1,7 @@
 #include "cart.h"
 
+#include "mappers.h"
+
 #include <fstream>
 #include <cstring>
 
@@ -8,6 +10,8 @@ using std::memcpy;
 namespace dsemu::cart {
 
 Header g_header;
+
+mappers::Mapper *mapper = nullptr;
 
 byte *g_romData = nullptr;
 int g_romSize = 0;
@@ -49,12 +53,29 @@ bool load(const string &romFile) {
                            << Byte(g_header.entry[2]) << " "
                            << Byte(g_header.entry[3]) << endl;
 
+    switch(g_header.cartType) {
+        case 0: {
+            mapper = new mappers::NROMMapper();
+        } break;
+        case 1: {
+            mapper = new mappers::MPC1();
+        } break;
+        default: {
+            cout << "UNSUPPORTED MAPPER" << endl;
+            exit(-1);
+        }
+    }
+
     return true;
 
 }
 
 byte read(ushort address) {
-    return g_romData[address];
+    return mapper->read(address);
+}
+
+void control(ushort address, byte b) {
+    mapper->control(address, b);
 }
 
 }

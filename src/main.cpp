@@ -21,8 +21,6 @@ int main(int argc, char **argv) {
 
     dsemu::cart::load((const char *)argv[1]);
 
-    //sleep(1);
-
     std::memcpy(ram, dsemu::cart::g_romData, 0x8000);
 
     ui::init();

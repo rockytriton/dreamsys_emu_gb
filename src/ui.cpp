@@ -3,6 +3,7 @@
 #include "ppu.h"
 #include "cpu.h"
 #include "io.h"
+#include "bus.h"
 
 #include <SDL2/SDL.h>
 
@@ -62,8 +63,8 @@ void displayTile(SDL_Surface *surface, ushort startLocation, ushort tileNum, int
     SDL_Rect rc;
 
     for (int tileY=0; tileY<16; tileY += 2) {
-        byte b1 = memory::read(startLocation + (tileNum * 16) + tileY);
-        byte b2 = memory::read(startLocation + (tileNum * 16) + 1 + tileY);
+        byte b1 = bus::read(startLocation + (tileNum * 16) + tileY);
+        byte b2 = bus::read(startLocation + (tileNum * 16) + 1 + tileY);
         
         for (int bit=7, n=0; bit >= 0; bit--, n++) {
             byte hi = !!(b1 & (1 << bit)) << 1;
@@ -106,8 +107,6 @@ void updateDebugWindow() {
 
 void update() {
     cpu::paused = true;
-    //int xDraw = 0;
-    //int yDraw = 0;
     SDL_Rect rc;
 
     for (int lineNum=0; lineNum<ppu::YRES; lineNum++) {
@@ -121,8 +120,10 @@ void update() {
             SDL_FillRect(screen, &rc, ppu::videoBuffer[x + (lineNum * ppu::XRES)]); // ppu::videoBuffer[lineNum][x]);
         }
     }
-
 /*
+
+    cout << "TILES: " << (int)ppu::scrollInfo.x << ", " << (int)ppu::scrollInfo.y << endl;
+
     for (int y=0; y<32; y++) {
         for (int x=0; x<32; x++) {
             ushort tileNum = memory::read(ppu::bgMapStart() + x + (y * 32));
@@ -131,13 +132,11 @@ void update() {
                 tileNum += 128;
             }
 
-            displayTile(screen, ppu::bgTileStart(), tileNum, xDraw + (x * scale), yDraw + (y * scale));
-
-            xDraw += (7 * scale);
+            cout << Byte(tileNum) << "-";
         }
 
-        yDraw += (7 * scale);
-        xDraw = 0;
+        cout << endl;
+
     }
 
 
