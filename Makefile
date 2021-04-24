@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-Werror=all -std=c++17
+CFLAGS=-Werror=all -std=c++17 -g
 DEPS = src/common.h
 
 SRC_DIR := src

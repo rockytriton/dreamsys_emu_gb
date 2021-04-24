@@ -1,6 +1,7 @@
 #include "memory.h"
 #include "cpu.h"
 #include "ppu.h"
+#include <cstring>
 
 namespace dsemu::memory {
 
@@ -39,7 +40,7 @@ namespace dsemu::memory {
         ram[0xFF4B] = 0x00;
         ram[0xFFFF] = 0x00;
 
-        memset(ram, 0, sizeof(ram));
+        std::memset(ram, 0, sizeof(ram));
     }
 
     byte read(ushort address) {

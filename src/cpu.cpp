@@ -35,20 +35,27 @@ bool paused = false;
 
 uint64_t totalTicks = 0;
 
+
+vector<byte> THESTACK;
+
 void push(ushort s) {
     setReg16Value(regSP, getReg16Value(regSP) - 2);
     bus::write(getReg16Value(regSP), s);
+    THESTACK.push_back(s & 0xFF);
+    THESTACK.push_back((s >> 8) & 0xFF);
 }
 
 void push(byte b) {
     setReg16Value(regSP, getReg16Value(regSP) - 1);
     bus::write(getReg16Value(regSP), b);
+    THESTACK.push_back(b);
 }
 
 byte pop() {
     byte lo = bus::read(getReg16Value(regSP));
     setReg16Value(regSP, getReg16Value(regSP) + 1);
-
+    THESTACK.pop_back();
+    
     return lo;
 }
 

@@ -20,7 +20,7 @@ bool load(const string &romFile) {
     std::ifstream in(romFile, std::ios::binary);
 
     if (!in) {
-        cout << "Unable to open ROM: " << romFile << endl;
+        cout << "Unable to open ROM: " << romFile << " - " << strerror(errno) << endl;
         return false;
     }
 

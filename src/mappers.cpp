@@ -1,6 +1,9 @@
 #include "mappers.h"
 #include "cart.h"
 #include "memory.h"
+#include <cstring>
+
+using std::memcpy;
 
 namespace dsemu::mappers {
 
@@ -15,6 +18,7 @@ byte NROMMapper::read(ushort address) {
 
 void NROMMapper::control(ushort address, byte b) {
     //nothing to do for this one...
+    cout << "CONTROL" << endl;
 }
 
 byte MPC1::read(ushort address) {

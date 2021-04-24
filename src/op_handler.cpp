@@ -534,6 +534,7 @@ int handlePOP(const OpCode &op) {
     ushort *p = (ushort *)getPointer(op.params[0], false);
     
     ushort s = spop();
+    cout << "POPPED VALUE: " << Short(s) << endl;
 
     if (p == (ushort *)&regAF) {
         *p = s & 0xFFF0;
@@ -553,8 +554,14 @@ int handlePUSH(const OpCode &op) {
 
     push(*p);
 
+    cout << "PUSHED: " << Short(*p) << endl;
+
     return 0;
 }
+
+int callSize = 0;
+
+extern vector<byte> THESTACK;
 
 int handleCALL(const OpCode &op) {
     ushort lca = regPC + op.length;
@@ -562,28 +569,80 @@ int handleCALL(const OpCode &op) {
     ushort location = toShort(bus::read(regPC + 1), bus::read(regPC + 2)) - op.length;
     //lastCallAddress = regPC + op.length;
 
-    //cout << "HANDLING CALL: " << Short(regPC) << endl;
+    //for (int i=0; i<callSize; i++) {
+    //    cout << " ";
+    //}
 
+    //char sz[256];
+    //sprintf("%%dc", callSize);
+
+    callSize++;
+
+    if (callSize > 30) {
+        callSize = callSize + 0;
+    }
+
+    cout << std::setfill('-') << std::setw(callSize) << "-" << "HANDLING CALL: " << Short(regPC) << " CALLSIZE: " << callSize << " STACK: ";
+
+
+    if (regPC == 0x2200) {
+        regPC += 0;
+    }
 
     int ret = conditionalJump(location, op, didJump);
 
     if (didJump) {
         cpu::push((ushort)(lca));
         lastCallAddress = lca;
+    } else {
+        cout << "NO" << endl;
     }
+
+    for (size_t i=0; i<THESTACK.size(); i++) {
+        cout << Byte(THESTACK[i]) << "-";
+    }
+    
+    cout << endl;
 
     return ret;
 }
 
+bool cameFromI = false;
+
 int handleRET(const OpCode &op) {
-    bool didJump;
+    bool didJump = false;
     ushort location = cpu::spop();
 
     //cout << "HANDLING RET: " << Short(lastCallAddress) << " - " << Short(location) << endl;
     int ret = conditionalJump(location - 1, op, didJump);
 
-    //cout << "RET - AFTER RET: " << ret << " - " << Short(regPC) << endl;
     
+    if (regPC == 0x3017) {
+        regPC = regPC + 0;
+    }
+
+    if (didJump) {
+        cout << std::setfill('-') << std::setw(callSize) << "-" << "RET - AFTER RET: " << ret << " - " << Short(regPC) << " / " << Short(location) << " CALLSIZE: " << callSize << " STACK: ";
+
+        if (!cameFromI) {
+            //for (int i=0; i<callSize; i++) {
+            //    cout << " ";
+            //}
+
+            callSize--;
+        }
+
+        if (callSize < 0) {
+            cout << "OOPS" << endl;
+        }
+
+        for (size_t i=0; i<THESTACK.size(); i++) {
+            cout << Byte(THESTACK[i]) << "-";
+        }
+        
+        cout << endl;
+    }
+
     if (!didJump) {
         cpu::push(location);
     }
@@ -593,7 +652,9 @@ int handleRET(const OpCode &op) {
 
 int handleRETI(const OpCode &op) {
     interruptsEnabled = true;
+    cameFromI = true;
     int n = handleRET(op);
+    cameFromI = false;
 
     //cout << "RETI - AFTER RET: " << n << " - " << Short(regPC) << endl;
 

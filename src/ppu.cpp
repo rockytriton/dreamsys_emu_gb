@@ -41,31 +41,32 @@ void init() {
 void drawFrame() {
 
     if (!cpu::haltWaitingForInterrupt) {
-    cout << "SPRITES: " << endl;
-    for (int i=0; i<160; i += 4) {
-        OAMEntry *entry = (OAMEntry *)&oamRAM[i];
-        
-        cout << Byte(entry->x) << "," << Byte(entry->y) << "-" << Byte(entry->tile) << " ";
+        /*
+        cout << "SPRITES: " << endl;
+        for (int i=0; i<160; i += 4) {
+            OAMEntry *entry = (OAMEntry *)&oamRAM[i];
+            
+            cout << Byte(entry->x) << "," << Byte(entry->y) << "-" << Byte(entry->tile) << " ";
 
-        if ((i % 40) == 0) {
-            cout << endl;
+            if ((i % 40) == 0) {
+                cout << endl;
+            }
         }
-    }
 
-    cout << endl;
+        cout << endl;
 
 
-    cout  << endl << "LCD Status: " << endl
-         << "\tbgDisplay: " << Byte(bgDisplay()) << endl
-         << "\tspriteDisplay: " << Byte(spriteDisplay()) << endl
-         << "\tspriteSize8x16: " << Byte(spriteSize8x16()) << endl
-         << "\tbgMapStart: " << Short(bgMapStart()) << endl
-         << "\tbgTileStart: " << Short(bgTileStart()) << endl
-         << "\twindowDisplay: " << Byte(windowDisplay()) << endl
-         << "\twindowMapSelect: " << Short(windowMapSelect()) << endl
-         << "\tlcdOn: " << Byte(lcdOn()) << endl << endl;
-
-    //if (!DEBUG) return;
+        cout  << endl << "LCD Status: " << endl
+            << "\tbgDisplay: " << Byte(bgDisplay()) << endl
+            << "\tspriteDisplay: " << Byte(spriteDisplay()) << endl
+            << "\tspriteSize8x16: " << Byte(spriteSize8x16()) << endl
+            << "\tbgMapStart: " << Short(bgMapStart()) << endl
+            << "\tbgTileStart: " << Short(bgTileStart()) << endl
+            << "\twindowDisplay: " << Byte(windowDisplay()) << endl
+            << "\twindowMapSelect: " << Short(windowMapSelect()) << endl
+            << "\tlcdOn: " << Byte(lcdOn()) << endl << endl;
+    */
+        //if (!DEBUG) return;
     }
     
 }
@@ -103,17 +104,51 @@ static unsigned long colors[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
 
 int normScroll = 3;
 
+
+vector<OAMEntry *> getSpritesOnLine(int lineNum) {
+
+    vector<OAMEntry *> entries;
+
+    for (int i=0; i<160; i += 4) {
+        OAMEntry *entry = (OAMEntry *)&oamRAM[i];
+        
+        if (entry->y >= lineNum + 8 && entry->y < lineNum + 16) {
+            entries.push_back(entry);
+        }
+    }
+
+    return entries;
+}
+
+OAMEntry *getSpriteOnX(vector<OAMEntry *> &sprites, int x) {
+    for (auto entry : sprites) {
+        if (entry->x >= x && entry->x < x + 8) {
+            return entry;
+        }
+    }
+
+    return nullptr;
+}
+
 void drawLine(int lineNum) {
     int mapy = (lineNum + getYScroll()) % 256;
     byte tileY = ((lineNum) % 8) * 2;
 
+    auto sprites = getSpritesOnLine(lineNum);
+
     for (int x=0; x<XRES; x += 1) {
+        auto sprite = getSpriteOnX(sprites, x);
+
         int mapx = (x + getXScroll()) % 256;
 
         ushort bgTileNum = bus::read(ppu::bgMapStart() + (mapx/8) + ((mapy/8) * 32));
 
         if (ppu::bgTileStart() == 0x8800) {
             bgTileNum += 128;
+        }
+
+        if (sprite != nullptr) {
+            bgTileNum = sprite->tile;
         }
 
         byte b1 = bus::read(ppu::bgTileStart() + (bgTileNum * 16) + tileY);
